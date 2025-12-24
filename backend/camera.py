@@ -13,6 +13,7 @@ from analytics.sedentary_tracker import SedentaryTracker
 from analytics.user_profile import UserProfile
 from analytics.analytics_tracker import analytics_tracker
 from analytics.history_logger import history_logger
+from analytics.primary_user_tracker import PrimaryUserTracker
 from services.recommendation_service import get_recommendations
 
 # -------------------------------
@@ -35,6 +36,7 @@ pose = mp_pose.Pose(
 # -------------------------------
 sedentary_trackers = {}
 user_profiles = {}
+primary_user_trackers = {}
 
 def reset_user_session(user_id):
     """
@@ -46,6 +48,9 @@ def reset_user_session(user_id):
         end_user_session(user_id)
     # Create new tracker for new session
     sedentary_trackers[user_id] = SedentaryTracker()
+    # Reset primary user lock
+    if user_id in primary_user_trackers:
+        primary_user_trackers[user_id].reset()
     print(f"[VertAIx] New session started for user: {user_id}")
 
 def end_user_session(user_id):
@@ -121,6 +126,7 @@ def start_camera_loop(app=None):
         if user_id not in sedentary_trackers:
             sedentary_trackers[user_id] = SedentaryTracker()
             user_profiles[user_id] = UserProfile()
+            primary_user_trackers[user_id] = PrimaryUserTracker()
 
         if results.pose_landmarks:
             # Extract only required landmarks (0–12 based)
@@ -129,6 +135,10 @@ def start_camera_loop(app=None):
                 width,
                 height
             )
+
+            # 🔒 Spatial consistency (PRIMARY USER LOCK)
+            if not primary_user_trackers[user_id].update_and_validate(landmarks):
+                continue  # Ignore other people in frame
 
             # Run VertAIx-PSF algorithm
             avg_pcs, bad_frames = analyzer.update(landmarks)
