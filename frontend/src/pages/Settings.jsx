@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import './Settings.css';
-
+import { BellTwoTone,SettingFilled  } from '@ant-design/icons';
 const Settings = () => {
   const [settings, setSettings] = useState({
     alertEnabled: true,
@@ -55,13 +55,13 @@ const Settings = () => {
   return (
     <div className="settings-page">
       <div className="settings-header">
-        <h1>⚙️ Settings</h1>
+        <h1><SettingFilled /> Settings</h1>
         <p>Customize your VertAIx experience</p>
       </div>
 
       <div className="settings-container">
         <div className="settings-section">
-          <h2>🔔 Alert Settings</h2>
+          <h2> <BellTwoTone /> Alert Settings</h2>
           <div className="settings-grid">
             <div className="setting-item">
               <div className="setting-info">
@@ -187,10 +187,10 @@ const Settings = () => {
 
         <div className="settings-actions">
           <button onClick={handleSave} className="btn-save">
-            💾 Save Settings
+            💾 Save 
           </button>
           <button onClick={handleReset} className="btn-reset">
-            🔄 Reset to Default
+            🔄 Reset 
           </button>
         </div>
       </div>
