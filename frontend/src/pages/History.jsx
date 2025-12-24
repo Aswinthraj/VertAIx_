@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getHistory, clearHistory } from '../services/api';
 import { toast } from 'react-toastify';
 import './History.css';
+import { FieldTimeOutlined, ExportOutlined, ClearOutlined } from '@ant-design/icons';
 
 const History = () => {
   const [historyData, setHistoryData] = useState([]);
@@ -104,7 +105,7 @@ const History = () => {
       <div className="history-page">
         <div className="history-header">
           <div>
-            <h1>📜 Posture History</h1>
+            <h1><FieldTimeOutlined /> Posture History</h1>
             <p>Loading history data...</p>
           </div>
         </div>
@@ -117,7 +118,7 @@ const History = () => {
       <div className="history-page">
         <div className="history-header">
           <div>
-            <h1>📜 Posture History</h1>
+            <h1><FieldTimeOutlined /> Posture History</h1>
             <p className="error-text">{error}</p>
           </div>
         </div>
@@ -129,15 +130,15 @@ const History = () => {
     <div className="history-page">
       <div className="history-header">
         <div>
-          <h1>📜 Posture History</h1>
+          <h1><FieldTimeOutlined /> Posture History</h1>
           <p>Complete log of your posture monitoring sessions</p>
         </div>
         <div className="history-actions">
           <button onClick={exportHistory} className="btn-export" disabled={historyData.length === 0}>
-            📥 Export CSV
+            <ExportOutlined /> Export CSV
           </button>
           <button onClick={handleClearHistory} className="btn-clear" disabled={historyData.length === 0}>
-            🗑️ Clear History
+            <ClearOutlined /> Clear History
           </button>
         </div>
       </div>

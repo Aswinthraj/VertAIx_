@@ -1,17 +1,18 @@
 import React from 'react';
 import './About.css';
+import { InfoCircleTwoTone, ExclamationOutlined } from '@ant-design/icons';
 
 const About = () => {
   return (
     <div className="about-page">
       <div className="about-header">
-        <h1>ℹ️ About VertAIx</h1>
+        <h1><InfoCircleTwoTone /> About VertAIx</h1>
         <p>AI-Powered Posture Detection System</p>
       </div>
 
       <div className="about-container">
         <div className="about-section">
-          <h2>🎯 Project Overview</h2>
+          <h2>Project Overview</h2>
           <p>
             VertAIx is an intelligent posture detection system developed as a final-year project. 
             The system uses advanced computer vision and machine learning techniques to monitor 
@@ -129,7 +130,7 @@ const About = () => {
             </div>
             <div className="info-row">
               <span className="info-label">Status:</span>
-              <span className="info-value status-active">✓ Active Development</span>
+              <span className="info-value status-active">Yet to deploy<ExclamationOutlined /></span>
             </div>
           </div>
         </div>
@@ -148,7 +149,7 @@ const About = () => {
         <div className="about-footer">
           <div className="footer-content">
             <p>© 2025 VertAIx - Posture Detection System</p>
-            <p className="footer-tagline">Built with ❤️ for better health and productivity</p>
+            <p className="footer-tagline">Built for better health and productivity</p>
           </div>
         </div>
       </div>

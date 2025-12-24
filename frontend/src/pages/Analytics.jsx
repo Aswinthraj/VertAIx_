@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getAnalytics, resetAnalytics } from '../services/api';
 import { toast } from 'react-toastify';
 import './Analytics.css';
+import { BarChartOutlined, PieChartOutlined } from '@ant-design/icons';
 
 const Analytics = () => {
   const [stats, setStats] = useState({
@@ -88,7 +89,7 @@ const Analytics = () => {
     return (
       <div className="analytics-page">
         <div className="analytics-header">
-          <h1>📈 Analytics Dashboard</h1>
+          <h1><BarChartOutlined /> Analytics Dashboard</h1>
           <p>Loading analytics data...</p>
         </div>
       </div>
@@ -99,7 +100,7 @@ const Analytics = () => {
     return (
       <div className="analytics-page">
         <div className="analytics-header">
-          <h1>📈 Analytics Dashboard</h1>
+          <h1><BarChartOutlined /> Analytics Dashboard</h1>
           <p className="error-text">{error}</p>
         </div>
       </div>
@@ -109,7 +110,7 @@ const Analytics = () => {
   return (
     <div className="analytics-page">
       <div className="analytics-header">
-        <h1>📈 Analytics Dashboard</h1>
+        <h1><BarChartOutlined /> Analytics Dashboard</h1>
         <p>Real-time posture monitoring statistics and insights</p>
         <button className="reset-button" onClick={handleResetAnalytics}>
           🔄 Reset Analytics
@@ -145,7 +146,7 @@ const Analytics = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon info">📊</div>
+          <div className="stat-icon info"><PieChartOutlined /></div>
           <div className="stat-content">
             <h3>Total Checks</h3>
             <div className="stat-value">{stats.total_checks}</div>

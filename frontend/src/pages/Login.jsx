@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Login.css';
+import { UserAddOutlined } from '@ant-design/icons';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -62,7 +63,7 @@ const Login = () => {
 
         <div className="login-footer">
           <p>
-            Don't have an account? <Link to="/register">Register here</Link>
+            Don't have an account? <Link to="/register">Register here <UserAddOutlined /> </Link>
           </p>
         </div>
       </div>
