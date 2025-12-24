@@ -102,6 +102,46 @@ def reset_analytics():
     })
 
 
+@app.route("/api/session/start", methods=["POST"])
+def start_session():
+    """
+    Mark the start of a new user session.
+    Resets the current sedentary tracker for fresh session tracking.
+    Firebase UID is passed from frontend via request header.
+    """
+    from camera import reset_user_session
+    
+    # 🔐 Get Firebase user ID (fallback for demo)
+    user_id = request.headers.get("X-USER-ID", "default_user")
+    
+    reset_user_session(user_id)
+    
+    return jsonify({
+        "status": "success",
+        "message": f"Session started for user {user_id}"
+    })
+
+
+@app.route("/api/session/end", methods=["POST"])
+def end_session():
+    """
+    Mark the end of a user session and accumulate sedentary time.
+    Firebase UID is passed from frontend via request header.
+    """
+    from camera import end_user_session
+    
+    # 🔐 Get Firebase user ID (fallback for demo)
+    user_id = request.headers.get("X-USER-ID", "default_user")
+    
+    session_time = end_user_session(user_id)
+    
+    return jsonify({
+        "status": "success",
+        "message": f"Session ended for user {user_id}",
+        "session_sedentary_time": session_time
+    })
+
+
 @app.route("/api/history", methods=["GET"])
 def get_history():
     """

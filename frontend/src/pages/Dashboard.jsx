@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getPostureStatus, getLLMAdvice } from '../services/api';
+import { getPostureStatus, getLLMAdvice, startSession, endSession } from '../services/api';
 import { toast } from 'react-toastify';
 import { audioManager } from '../utils/audioManager';
 import './Dashboard.css';
@@ -27,6 +27,11 @@ const Dashboard = () => {
   const userId = 'default_user';
 
   useEffect(() => {
+    // Start session when component mounts
+    startSession(userId).catch(err => {
+      console.error('Failed to start session:', err);
+    });
+
     // Fetch posture data immediately on mount
     fetchPostureData();
 
@@ -41,14 +46,19 @@ const Dashboard = () => {
       fetchLLMAdvice();
     }, 30000);
 
-    // Cleanup intervals on component unmount
+    // Cleanup intervals on component unmount and end session
     return () => {
       clearInterval(interval);
       clearInterval(llmInterval);
       if (typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
       }
+      // End session when leaving dashboard
+      endSession(userId).catch(err => {
+        console.error('Failed to end session:', err);
+      });
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Typing effect when LLM advice changes

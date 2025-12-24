@@ -31,6 +31,38 @@ pose = mp_pose.Pose(
 )
 
 # -------------------------------
+# GLOBAL STATE (module-level for API access)
+# -------------------------------
+sedentary_trackers = {}
+user_profiles = {}
+
+def reset_user_session(user_id):
+    """
+    Reset sedentary tracker for a new session (start fresh).
+    Called when user opens/refreshes dashboard.
+    """
+    if user_id in sedentary_trackers:
+        # End current session first to save time
+        end_user_session(user_id)
+    # Create new tracker for new session
+    sedentary_trackers[user_id] = SedentaryTracker()
+    print(f"[VertAIx] New session started for user: {user_id}")
+
+def end_user_session(user_id):
+    """
+    End a user session and accumulate sedentary time to database.
+    Returns the total session sedentary time.
+    """
+    if user_id in sedentary_trackers:
+        session_time = sedentary_trackers[user_id].end_session()
+        if session_time > 0:
+            # Add to cumulative total in database
+            analytics_tracker.add_session_sedentary_time(user_id, session_time)
+            print(f"[VertAIx] Session ended for user {user_id}. Sedentary time: {session_time}s")
+        return session_time
+    return 0
+
+# -------------------------------
 # CAMERA LOOP
 # -------------------------------
 
@@ -41,6 +73,8 @@ def start_camera_loop(app=None):
     Args:
         app: Flask application instance (required for database operations)
     """
+    global sedentary_trackers, user_profiles
+    
     cap = cv2.VideoCapture(0)
 
     if not cap.isOpened():
@@ -53,8 +87,6 @@ def start_camera_loop(app=None):
     # -------------------------------
     # PER-USER STATE (Firebase-ready)
     # -------------------------------
-    sedentary_trackers = {}
-    user_profiles = {}
     
     # Throttle analytics and history updates to once per second
     last_analytics_update = {}

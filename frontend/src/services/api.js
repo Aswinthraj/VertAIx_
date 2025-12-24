@@ -82,6 +82,60 @@ export const resetAnalytics = async (userId) => {
 };
 
 /**
+ * Start a new user session
+ * @param {string} userId - Firebase user ID to send in request header
+ * @returns {Promise} Response containing session start status
+ */
+export const startSession = async (userId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/session/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-USER-ID': userId
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error starting session:', error);
+    throw error;
+  }
+};
+
+/**
+ * End current user session
+ * @param {string} userId - Firebase user ID to send in request header
+ * @returns {Promise} Response containing session end status and total session time
+ */
+export const endSession = async (userId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/session/end`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-USER-ID': userId
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error ending session:', error);
+    throw error;
+  }
+};
+
+/**
  * Fetch history data from the backend API
  * @param {string} userId - Firebase user ID to send in request header
  * @param {number} limit - Maximum number of history entries to fetch (default 100)

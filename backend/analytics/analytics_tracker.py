@@ -19,7 +19,7 @@ class AnalyticsTracker:
             user_id: Firebase user ID
             status: Posture status ("Good Posture", "Posture Warning", "Bad Posture")
             pcs: Posture Confidence Score
-            sedentary_time: Current session sedentary time (seconds)
+            sedentary_time: Current session sedentary time (seconds) - not accumulated here
         """
         with self._lock:
             try:
@@ -35,8 +35,7 @@ class AnalyticsTracker:
                 analytics.total_checks = (analytics.total_checks or 0) + 1
                 analytics.total_pcs = (analytics.total_pcs or 0.0) + float(pcs)
                 
-                # Update cumulative sedentary time
-                analytics.total_sedentary_time = sedentary_time
+                # Note: total_sedentary_time is updated separately in end_session
                 
                 if status == "Good Posture":
                     analytics.good_posture_count = (analytics.good_posture_count or 0) + 1
@@ -94,6 +93,25 @@ class AnalyticsTracker:
                     "warning_percentage": 0.0,
                     "bad_percentage": 0.0
                 }
+    
+    def add_session_sedentary_time(self, user_id: str, session_time: int):
+        """
+        Add sedentary time from a completed session to the total.
+        
+        Args:
+            user_id: Firebase user ID
+            session_time: Total sedentary seconds from the completed session
+        """
+        with self._lock:
+            try:
+                analytics = PostureAnalytics.query.filter_by(user_id=user_id).first()
+                if analytics:
+                    analytics.total_sedentary_time = (analytics.total_sedentary_time or 0) + session_time
+                    db.session.commit()
+                    print(f"[Analytics] Added {session_time}s to total sedentary time for {user_id}")
+            except Exception as e:
+                db.session.rollback()
+                print(f"[ERROR] Failed to add session sedentary time: {e}")
     
     def reset_user_analytics(self, user_id: str):
         """
