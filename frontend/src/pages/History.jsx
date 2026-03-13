@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getHistory, clearHistory } from '../services/api';
+import { getHistory, clearHistory, saveUserDetailsCSV } from '../services/api';
 import { toast } from 'react-toastify';
 import './History.css';
-import { FieldTimeOutlined, ExportOutlined, ClearOutlined } from '@ant-design/icons';
+import { FieldTimeOutlined, ExportOutlined, ClearOutlined, SaveOutlined } from '@ant-design/icons';
 
 const History = () => {
   const [historyData, setHistoryData] = useState([]);
@@ -100,6 +100,21 @@ const History = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  const handleSaveCSV = async () => {
+    try {
+      const result = await saveUserDetailsCSV(userId);
+      toast.success(`Report saved: ${result.file} (${result.records} records)`, {
+        position: "top-right",
+        autoClose: 4000,
+      });
+    } catch (err) {
+      toast.error('Failed to save user details CSV', {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="history-page">
@@ -134,6 +149,9 @@ const History = () => {
           <p>Complete log of your posture monitoring sessions</p>
         </div>
         <div className="history-actions">
+          <button onClick={handleSaveCSV} className="btn-save" disabled={historyData.length === 0}>
+            <SaveOutlined /> Save Report
+          </button>
           <button onClick={exportHistory} className="btn-export" disabled={historyData.length === 0}>
             <ExportOutlined /> Export CSV
           </button>

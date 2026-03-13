@@ -34,7 +34,7 @@
   gap: 1rem;
 }
 
-.btn-export, .btn-clear {
+.btn-export, .btn-clear, .btn-save {
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 8px;
@@ -42,6 +42,16 @@
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 0.95rem;
+}
+
+.btn-save {
+  background: linear-gradient(135deg, #43a047, #2e7d32);
+  color: white;
+}
+
+.btn-save:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(67, 160, 71, 0.4);
 }
 
 .btn-export {
@@ -64,7 +74,7 @@
   box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);
 }
 
-.btn-export:disabled, .btn-clear:disabled {
+.btn-export:disabled, .btn-clear:disabled, .btn-save:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -244,7 +254,7 @@
     flex-direction: column;
   }
 
-  .btn-export, .btn-clear {
+  .btn-export, .btn-clear, .btn-save {
     width: 100%;
   }
 

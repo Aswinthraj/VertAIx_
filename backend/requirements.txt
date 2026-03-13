@@ -1,5 +1,5 @@
 opencv-python
-mediapipe
+mediapipe==0.10.21
 numpy
 flask
 flask-cors
@@ -9,3 +9,5 @@ flask-jwt-extended
 flask-bcrypt
 python-dotenv
 requests
+joblib
+scikit-learn

@@ -102,6 +102,46 @@ def reset_analytics():
     })
 
 
+@app.route("/api/set-mode", methods=["POST"])
+def set_mode():
+    """
+    Switch posture detection mode.
+    Accepts JSON body: { "mode": "rule" } or { "mode": "ml" }
+    """
+    from camera import set_detection_mode, get_detection_mode
+
+    data = request.get_json()
+    mode = data.get("mode", "rule") if data else "rule"
+
+    if mode not in ("rule", "ml"):
+        return jsonify({"status": "error", "message": "Invalid mode. Use 'rule' or 'ml'."}), 400
+
+    success = set_detection_mode(mode)
+    if not success:
+        return jsonify({
+            "status": "error",
+            "message": "ML model not available. Ensure posture_model.pkl exists in the backend folder."
+        }), 400
+
+    return jsonify({
+        "status": "success",
+        "mode": get_detection_mode(),
+        "message": f"Detection mode set to '{get_detection_mode()}'"
+    })
+
+
+@app.route("/api/detection-mode", methods=["GET"])
+def detection_mode():
+    """
+    Returns the current posture detection mode.
+    """
+    from camera import get_detection_mode
+
+    return jsonify({
+        "mode": get_detection_mode()
+    })
+
+
 @app.route("/api/session/start", methods=["POST"])
 def start_session():
     """
@@ -196,6 +236,36 @@ def export_history():
         'Content-Type': 'text/csv',
         'Content-Disposition': f'attachment; filename=vertaix-history-{user_id}.csv'
     }
+
+
+@app.route("/api/history/save-csv", methods=["POST"])
+def save_user_details_csv():
+    """
+    Save user details and posture history to a CSV file on the server.
+    Includes analytics summary + full posture history.
+    Firebase UID is passed from frontend via request header.
+    """
+    # 🔐 Get Firebase user ID (fallback for demo)
+    user_id = request.headers.get("X-USER-ID", "default_user")
+    
+    # Get analytics data to include in report
+    analytics_data = analytics_tracker.get_analytics(user_id)
+    
+    # Save to CSV file
+    result = history_logger.save_user_details_csv(user_id, analytics_data)
+    
+    if result['status'] == 'success':
+        return jsonify({
+            "status": "success",
+            "message": f"User details saved to {result['file']}",
+            "file": result['file'],
+            "records": result['records']
+        })
+    else:
+        return jsonify({
+            "status": "error",
+            "message": result.get('message', 'Failed to save CSV')
+        }), 500
 
 
 @app.route("/api/llm-advice", methods=["GET"])

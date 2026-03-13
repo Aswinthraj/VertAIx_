@@ -218,10 +218,88 @@ export const clearHistory = async (userId) => {
 };
 
 /**
+ * Set the posture detection mode on the backend
+ * @param {string} mode - 'rule' or 'ml'
+ * @returns {Promise} Response containing mode status
+ */
+export const setDetectionMode = async (mode) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/set-mode`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ mode }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || `HTTP error! status: ${response.status}`);
+    }
+    return data;
+  } catch (error) {
+    console.error('Error setting detection mode:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get the current posture detection mode from the backend
+ * @returns {Promise} Response containing current mode
+ */
+export const getDetectionMode = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/detection-mode`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error getting detection mode:', error);
+    throw error;
+  }
+};
+
+/**
  * Get CSV export URL for history
  * @param {string} userId - Firebase user ID
  * @returns {string} URL to download CSV
  */
 export const getHistoryExportUrl = (userId) => {
   return `${API_BASE_URL}/api/history/export?user_id=${userId}`;
+};
+
+/**
+ * Save user details and history to a CSV file on the server
+ * @param {string} userId - Firebase user ID to send in request header
+ * @returns {Promise} Response containing save status and file info
+ */
+export const saveUserDetailsCSV = async (userId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/history/save-csv`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-USER-ID': userId
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error saving user details CSV:', error);
+    throw error;
+  }
 };
