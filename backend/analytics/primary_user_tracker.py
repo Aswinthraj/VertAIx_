@@ -11,8 +11,12 @@ class PrimaryUserTracker:
         self.threshold = threshold  # pixels
 
     def update_and_validate(self, landmarks):
-        ls = landmarks["LEFT_SHOULDER"]
-        rs = landmarks["RIGHT_SHOULDER"]
+        ls = landmarks.get("LEFT_SHOULDER")
+        rs = landmarks.get("RIGHT_SHOULDER")
+
+        # Return False if landmarks are missing or invalid
+        if ls is None or rs is None:
+            return False
 
         center = (
             (ls[0] + rs[0]) // 2,
