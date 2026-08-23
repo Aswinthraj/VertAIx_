@@ -4,13 +4,13 @@ import { getAuth } from 'firebase/auth';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDCln0yN44x8Zw44wrBygs94vUVGlljYDE",
-  authDomain: "vertaix-42d88.firebaseapp.com",
-  projectId: "vertaix-42d88",
-  storageBucket: "vertaix-42d88.firebasestorage.app",
-  messagingSenderId: "687116752364",
-  appId: "1:687116752364:web:e1fa6a1da8d901a8b31cc9",
-  measurementId: "G-JTM3GH421L"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
