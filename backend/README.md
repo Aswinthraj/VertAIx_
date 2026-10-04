@@ -1,83 +1,42 @@
-# VertAIx Backend - Setup Instructions
+# VertAIx FastAPI Backend
 
-## PostgreSQL Database Setup
+## Quickstart
 
-### 1. Install PostgreSQL
-Download and install PostgreSQL from: https://www.postgresql.org/download/
-
-### 2. Create Database
-```sql
--- Connect to PostgreSQL
-psql -U postgres
-
--- Create database
-CREATE DATABASE vertaix_db;
-
--- Create user (optional)
-CREATE USER vertaix_user WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE vertaix_db TO vertaix_user;
+### 1. Installation
+```powershell
+python -m venv fastapi_venv
+.\fastapi_venv\Scripts\Activate.ps1
+pip install -r backend/requirements.txt
 ```
 
-### 3. Configure Environment Variables
-Create a `.env` file in the backend directory:
-
-```bash
-# Copy from .env.example
-cp .env.example .env
+### 2. Environment Configuration
+Create `backend/.env` with your local settings:
+```env
+DATABASE_URL=postgresql://postgres:password@localhost:5432/vertaix_db
+JWT_SECRET_KEY=your-secret-key-change-in-production
+GROQ_API_KEY=your_groq_api_key
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
 
-Edit `.env` with your database credentials:
-```
-DATABASE_URL=postgresql://username:password@localhost:5432/vertaix_db
-JWT_SECRET_KEY=your-secret-key-change-this-in-production
-FLASK_ENV=development
-```
-
-### 4. Install Dependencies
-```bash
-cd backend
-pip install -r requirements.txt
+### 3. Database Migrations (Alembic)
+```powershell
+$env:PYTHONPATH="backend"
+alembic upgrade head
 ```
 
-### 5. Run the Application
-```bash
-python app.py
+### 4. Running FastAPI Server
+```powershell
+$env:PYTHONPATH="backend"
+uvicorn fastapi_app.main:app --reload --port 8000
 ```
 
-The backend will automatically create the database tables on first run.
+Interactive Swagger API Documentation is available at `http://127.0.0.1:8000/docs`.
 
-## API Endpoints
+---
 
-### Authentication
-- **POST** `/api/auth/register` - Register new user
-  ```json
-  {
-    "username": "string",
-    "email": "string",
-    "password": "string"
-  }
-  ```
+## Testing
 
-- **POST** `/api/auth/login` - Login user
-  ```json
-  {
-    "username": "string",
-    "password": "string"
-  }
-  ```
-
-- **GET** `/api/auth/me` - Get current user (requires JWT token)
-
-### Posture Monitoring
-- **GET** `/api/posture` - Get posture status (requires JWT token)
-- **GET** `/api/health` - Health check
-
-## Database Schema
-
-### Users Table
-- `id` - Primary key
-- `username` - Unique username
-- `email` - Unique email
-- `password_hash` - Hashed password
-- `created_at` - Account creation timestamp
-- `last_login` - Last login timestamp
+```powershell
+$env:PYTHONPATH="backend"
+pytest backend/tests -v
+```

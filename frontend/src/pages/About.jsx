@@ -119,14 +119,14 @@ const About = () => {
 
             <div className="tech-card">
               <span className="tech-category">Backend API</span>
-              <strong className="tech-name">Python Flask Server</strong>
-              <p className="tech-details">RESTful telemetry endpoints, multi-threaded camera worker, and analytics tracking.</p>
+              <strong className="tech-name">Python FastAPI Server</strong>
+              <p className="tech-details">High-performance async telemetry endpoints, camera worker integration, and analytics tracking.</p>
             </div>
 
             <div className="tech-card">
               <span className="tech-category">Authentication & DB</span>
-              <strong className="tech-name">Firebase & SQLite / Postgres</strong>
-              <p className="tech-details">Secure user authentication and persistent posture telemetry history logging.</p>
+              <strong className="tech-name">JWT & PostgreSQL / Alembic</strong>
+              <p className="tech-details">Secure JWT token authentication, refresh rotation, and versioned PostgreSQL database schema.</p>
             </div>
           </div>
         </section>
