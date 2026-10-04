@@ -21,18 +21,26 @@ class VertAIxPSF:
         self.window_size = window_size
         self.pcs_window = deque(maxlen=window_size)
         self.bad_posture_frames = 0
+        self.baseline_samples = []
+        self.baseline = None
 
     # ------------------------------------------------
     # METRIC COMPUTATION (0–12 LANDMARKS)
     # ------------------------------------------------
     def _compute_metrics(self, landmarks):
-        nose = landmarks["NOSE"]
-        ls = landmarks["LEFT_SHOULDER"]
-        rs = landmarks["RIGHT_SHOULDER"]
+        nose = landmarks.get("NOSE")
+        ls = landmarks.get("LEFT_SHOULDER")
+        rs = landmarks.get("RIGHT_SHOULDER")
+
+        if nose is None or ls is None or rs is None:
+            return None
 
         # Optional (from 0–12 landmarks)
         left_ear = landmarks.get("LEFT_EAR")
         right_ear = landmarks.get("RIGHT_EAR")
+        nose_depth = landmarks.get("NOSE_DEPTH")
+        left_shoulder_depth = landmarks.get("LEFT_SHOULDER_DEPTH")
+        right_shoulder_depth = landmarks.get("RIGHT_SHOULDER_DEPTH")
 
         # Reference scale (normalization)
         shoulder_width = euclidean_distance(ls, rs) + 1e-6
@@ -43,17 +51,29 @@ class VertAIxPSF:
             (ls[1] + rs[1]) / 2
         )
 
-        # 1️⃣ Head Forward Ratio (HFR)
-        hfr = euclidean_distance(nose, shoulder_center) / shoulder_width
+        # 1️⃣ Lateral head displacement for a front-facing webcam
+        head_lateral = abs(nose[0] - shoulder_center[0]) / shoulder_width
 
         # 2️⃣ Shoulder Balance Index (SBI)
         sbi = abs(ls[1] - rs[1]) / shoulder_width
 
-        # 3️⃣ Neck Inclination Proxy (NIP)
-        nip = abs(nose[1] - shoulder_center[1]) / shoulder_width
+        # 3️⃣ Head-down displacement; upright head height is not penalized
+        head_down = max(0, (nose[1] - shoulder_center[1]) / shoulder_width)
 
-        # 4️⃣ Head Pitch Ratio (HPR) – text neck detection
-        hpr = max(0, nose[1] - shoulder_center[1]) / shoulder_width
+        # Forward-head displacement from MediaPipe depth. Negative z is closer
+        # to the camera, so a nose closer than the shoulders indicates leaning.
+        if (
+            nose_depth is not None
+            and left_shoulder_depth is not None
+            and right_shoulder_depth is not None
+        ):
+            shoulder_depth = (left_shoulder_depth + right_shoulder_depth) / 2
+            head_forward = max(0, (shoulder_depth - nose_depth) / shoulder_width)
+        else:
+            head_forward = 0.0
+
+        # 4️⃣ Kept as a separate metric for the existing scoring interface
+        head_pitch = head_down
 
         # 5️⃣ Head Tilt Ratio (HTR) – optional (ear symmetry)
         if left_ear and right_ear:
@@ -61,24 +81,26 @@ class VertAIxPSF:
         else:
             htr = 0.0
 
-        return hfr, sbi, nip, hpr, htr
+        return head_lateral, sbi, head_down, head_forward, head_pitch, htr
 
     # ------------------------------------------------
     # POSTURE CONFIDENCE SCORE (PCS)
     # ------------------------------------------------
-    def _compute_pcs(self, hfr, sbi, nip, hpr, htr):
-        # Tuned for webcam posture (0–12 landmarks)
-        w_hfr = 30   # forward head
-        w_sbi = 20   # shoulder imbalance
-        w_nip = 15   # neck inclination
-        w_hpr = 35   # head-down posture
-        w_htr = 20   # head tilt
+    def _compute_pcs(self, head_lateral, sbi, head_down, head_forward, head_pitch, htr):
+        # Tuned for a front-facing webcam.
+        w_head_lateral = 30
+        w_sbi = 20
+        w_head_down = 200
+        w_head_forward = 160
+        w_head_pitch = 0
+        w_htr = 20
 
         penalty = (
-            w_hfr * hfr +
+            w_head_lateral * head_lateral +
             w_sbi * sbi +
-            w_nip * nip +
-            w_hpr * hpr +
+            w_head_down * head_down +
+            w_head_forward * head_forward +
+            w_head_pitch * head_pitch +
             w_htr * htr
         )
 
@@ -97,8 +119,39 @@ class VertAIxPSF:
         - bad_posture_frames
         """
 
-        hfr, sbi, nip, hpr, htr = self._compute_metrics(landmarks)
-        pcs = self._compute_pcs(hfr, sbi, nip, hpr, htr)
+        metrics = self._compute_metrics(landmarks)
+        if metrics is None:
+            avg_pcs = float(np.mean(self.pcs_window)) if self.pcs_window else 0.0
+            return avg_pcs, self.bad_posture_frames
+
+        head_lateral, sbi, head_down, head_forward, head_pitch, htr = metrics
+
+        # Calibrate the user's natural upper-body geometry from the first stable frames.
+        current_metrics = np.array(
+            [head_lateral, sbi, head_down, head_forward, htr],
+            dtype=float,
+        )
+        if self.baseline is None:
+            self.baseline_samples.append(current_metrics)
+            if len(self.baseline_samples) >= 30:
+                self.baseline = np.median(self.baseline_samples, axis=0)
+            calibrated_metrics = np.zeros(5)
+        else:
+            deviations = np.abs(current_metrics - self.baseline)
+            deviations[2] = max(0.0, current_metrics[2] - self.baseline[2])
+            deviations[3] = max(0.0, current_metrics[3] - self.baseline[3])
+            calibrated_metrics = np.maximum(0.0, deviations - np.array([
+                0.05, 0.02, 0.05, 0.05, 0.02
+            ]))
+
+        pcs = self._compute_pcs(
+            calibrated_metrics[0],
+            calibrated_metrics[1],
+            calibrated_metrics[2],
+            calibrated_metrics[3],
+            head_pitch,
+            calibrated_metrics[4],
+        )
 
         # Temporal smoothing
         self.pcs_window.append(pcs)

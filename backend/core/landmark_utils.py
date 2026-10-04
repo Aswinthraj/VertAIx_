@@ -27,6 +27,7 @@ def extract_required_landmarks(pose_landmarks, frame_width, frame_height):
         # Ignore unreliable landmarks
         if hasattr(lm, "visibility") and lm.visibility < 0.5:
             extracted[name] = None
+            extracted[f"{name}_DEPTH"] = None
             continue
 
         # Convert normalized coords to pixels
@@ -38,5 +39,6 @@ def extract_required_landmarks(pose_landmarks, frame_width, frame_height):
         y = max(0, min(y, frame_height))
 
         extracted[name] = (x, y)
+        extracted[f"{name}_DEPTH"] = lm.z * frame_width
 
     return extracted

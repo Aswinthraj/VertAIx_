@@ -152,9 +152,23 @@ def start_camera_loop(app=None):
     file_exists = os.path.exists(csv_file_path)
     csv_file = open(csv_file_path, mode='a', newline='')
     csv_writer = csv.writer(csv_file)
-    if not file_exists:
+    if not file_exists or os.path.getsize(csv_file_path) == 0:
         csv_writer.writerow(["neck_angle", "shoulder_angle", "spine_angle", "label"])
     print("[VertAIx] Dataset CSV ready: posture_dataset.csv (Press 'g'=Good, 'b'=Bad, 'q'=Quit)")
+
+    posture_log_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "logs", "posture_log.csv"
+    )
+    os.makedirs(os.path.dirname(posture_log_path), exist_ok=True)
+    posture_log_file = open(posture_log_path, mode='a', newline='', encoding='utf-8')
+    posture_log_writer = csv.writer(posture_log_file)
+    if os.path.getsize(posture_log_path) == 0:
+        posture_log_writer.writerow([
+            "timestamp", "user_id", "neck_angle", "shoulder_angle",
+            "spine_angle", "status", "pcs", "alert", "sedentary_time"
+        ])
+    posture_log_file.flush()
+    print(f"[VertAIx] Posture log ready: {posture_log_path}")
 
     while True:
         ret, frame = cap.read()
@@ -298,6 +312,19 @@ def start_camera_loop(app=None):
                     )
                 last_history_update[user_id] = current_time
 
+                posture_log_writer.writerow([
+                    time.strftime("%Y-%m-%d %H:%M:%S"),
+                    user_id,
+                    current_neck_angle,
+                    current_shoulder_angle,
+                    current_spine_angle,
+                    status,
+                    round(float(pcs), 2),
+                    int(alert),
+                    sedentary_time
+                ])
+                posture_log_file.flush()
+
         else:
             sedentary_time = sedentary_trackers[user_id].update(
                 person_detected=False
@@ -355,6 +382,7 @@ def start_camera_loop(app=None):
             break
 
     csv_file.close()
+    posture_log_file.close()
     print("[VertAIx] Dataset CSV file saved and closed")
     cap.release()
     cv2.destroyAllWindows()

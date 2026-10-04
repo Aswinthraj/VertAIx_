@@ -1,77 +1,100 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged,
-  updateProfile 
-} from 'firebase/auth';
-import { auth } from '../firebase/config';
+import {
+  loginUser,
+  registerUser,
+  logoutUser,
+  getCurrentUser,
+  getAccessToken,
+  getStoredUser,
+  clearTokens,
+} from '../services/api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => getStoredUser());
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Listen for auth state changes
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
+  const handleUnauthorized = useCallback(() => {
+    setUser(null);
+    clearTokens();
+    navigate('/login');
+  }, [navigate]);
 
-    return unsubscribe;
+  useEffect(() => {
+    // Listen for global 401 unrecoverable auth events
+    window.addEventListener('vertaix:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('vertaix:unauthorized', handleUnauthorized);
+    };
+  }, [handleUnauthorized]);
+
+  useEffect(() => {
+    const initializeAuth = async () => {
+      const token = getAccessToken();
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const userData = await getCurrentUser();
+        // Normalize user shape for React components
+        const normalizedUser = {
+          ...userData,
+          uid: String(userData.id),
+          displayName: userData.username,
+        };
+        setUser(normalizedUser);
+      } catch (err) {
+        console.warn('[VertAIx] Session initialization failed:', err);
+        setUser(null);
+        clearTokens();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
-  const register = async (username, email, password) => {
+  const login = async (usernameOrEmail, password) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // Update profile with username
-      await updateProfile(userCredential.user, {
-        displayName: username
-      });
-      
-      toast.success('Registration successful!');
+      const response = await loginUser(usernameOrEmail, password);
+      const normalizedUser = {
+        ...response.user,
+        uid: String(response.user.id),
+        displayName: response.user.username,
+      };
+      setUser(normalizedUser);
+      toast.success('Signed in successfully!');
       navigate('/');
-      return { success: true };
+      return { success: true, user: normalizedUser };
     } catch (error) {
-      let errorMessage = 'Registration failed';
-      
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'Email already registered';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password should be at least 6 characters';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address';
-      }
-      
+      const errorMessage = error.message || 'Login failed';
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
     }
   };
 
-  const login = async (email, password) => {
+  const register = async (username, email, password) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast.success('Login successful!');
+      const response = await registerUser(username, email, password);
+      const normalizedUser = {
+        ...response.user,
+        uid: String(response.user.id),
+        displayName: response.user.username,
+      };
+      setUser(normalizedUser);
+      toast.success('Account created successfully!');
       navigate('/');
-      return { success: true };
+      return { success: true, user: normalizedUser };
     } catch (error) {
-      let errorMessage = 'Login failed';
-      
-      if (error.code === 'auth/user-not-found') {
-        errorMessage = 'No account found with this email';
-      } else if (error.code === 'auth/wrong-password') {
-        errorMessage = 'Incorrect password';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address';
-      }
-      
+      const errorMessage = error.message || 'Registration failed';
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
     }
@@ -79,23 +102,28 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await signOut(auth);
+      await logoutUser();
+    } catch (err) {
+      console.warn('[VertAIx] Logout error:', err);
+    } finally {
+      setUser(null);
+      clearTokens();
       navigate('/login');
-      toast.info('Logged out successfully');
-    } catch (error) {
-      toast.error('Failed to logout');
+      toast.info('Signed out of session');
     }
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      login, 
-      register, 
-      logout, 
-      loading, 
-      isAuthenticated: !!user 
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        logout,
+        loading,
+        isAuthenticated: !!user,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

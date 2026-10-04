@@ -1,157 +1,168 @@
 import React from 'react';
+import {
+  ScanEye,
+  Camera,
+  Cpu,
+  Layers,
+  Activity,
+  FileCode2,
+  CheckCircle2,
+  BookOpen
+} from 'lucide-react';
 import './About.css';
-import { InfoCircleTwoTone, ExclamationOutlined } from '@ant-design/icons';
 
 const About = () => {
   return (
     <div className="about-page">
-      <div className="about-header">
-        <h1><InfoCircleTwoTone /> About VertAIx</h1>
-        <p>AI-Powered Posture Detection System</p>
-      </div>
-
       <div className="about-container">
-        <div className="about-section">
-          <h2>Project Overview</h2>
-          <p>
-            VertAIx is an intelligent posture detection system developed as a final-year project. 
-            The system uses advanced computer vision and machine learning techniques to monitor 
-            and analyze human posture in real-time, providing immediate feedback and alerts to 
-            help users maintain proper ergonomic positioning.
+        {/* Header */}
+        <header className="about-header-card">
+          <div className="header-badge-row">
+            <h1 className="about-title">About VertAIx</h1>
+            <span className="about-tag">Research & Engineering Documentation</span>
+          </div>
+          <p className="about-subtitle">
+            A vision-based posture estimation and ergonomic monitoring system using MediaPipe and geometric classification
           </p>
-        </div>
+        </header>
 
-        <div className="about-section">
-          <h2>✨ Key Features</h2>
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon">🎥</div>
-              <h3>Real-Time Monitoring</h3>
-              <p>Continuous posture analysis using webcam feed</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">🤖</div>
-              <h3>AI-Powered Detection</h3>
-              <p>Machine learning models for accurate posture classification</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">📊</div>
-              <h3>Analytics Dashboard</h3>
-              <p>Comprehensive statistics and insights</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">🚨</div>
-              <h3>Smart Alerts</h3>
-              <p>Instant notifications for poor posture</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">📈</div>
-              <h3>Progress Tracking</h3>
-              <p>Historical data and improvement metrics</p>
-            </div>
-            <div className="feature-card">
-              <div className="feature-icon">⚙️</div>
-              <h3>Customizable Settings</h3>
-              <p>Personalized alerts and monitoring options</p>
-            </div>
+        {/* Project Overview */}
+        <section className="about-card">
+          <div className="section-header-group">
+            <ScanEye size={20} className="section-icon" />
+            <h2 className="section-title">System Overview</h2>
           </div>
-        </div>
+          <p className="section-paragraph">
+            VertAIx is an engineering research platform developed for real-time computer-vision ergonomic posture analysis. 
+            By capturing continuous webcam video frames and estimating 33 spatial body landmarks via MediaPipe Pose, the system computes key biomechanical angles 
+            (including head tilt, neck inclination, and shoulder alignment) to classify sitting posture as <strong>Good</strong>, <strong>Warning</strong>, or <strong>Bad</strong>.
+          </p>
+          <p className="section-paragraph">
+            Unlike intrusive wearable sensors, VertAIx operates fully vision-based, generating a continuous Posture Confidence Score (PCS), 
+            tracking cumulative sedentary periods, and dispatching instant ergonomic feedback to encourage healthy workplace alignment.
+          </p>
+        </section>
 
-        <div className="about-section">
-          <h2>🛠️ Technology Stack</h2>
-          <div className="tech-grid">
-            <div className="tech-item">
-              <strong>Frontend:</strong>
-              <span>React.js, React Router, Axios</span>
-            </div>
-            <div className="tech-item">
-              <strong>Backend:</strong>
-              <span>Python, Flask, OpenCV</span>
-            </div>
-            <div className="tech-item">
-              <strong>ML/AI:</strong>
-              <span>MediaPipe, TensorFlow, Computer Vision</span>
-            </div>
-            <div className="tech-item">
-              <strong>Styling:</strong>
-              <span>CSS3, Responsive Design</span>
-            </div>
+        {/* Technical Pipeline */}
+        <section className="about-card">
+          <div className="section-header-group">
+            <Layers size={20} className="section-icon" />
+            <h2 className="section-title">Computer-Vision Processing Pipeline</h2>
           </div>
-        </div>
 
-        <div className="about-section">
-          <h2>📋 How It Works</h2>
-          <div className="workflow">
-            <div className="workflow-step">
-              <div className="step-number">1</div>
-              <div className="step-content">
-                <h3>Capture</h3>
-                <p>Webcam captures real-time video feed</p>
+          <div className="pipeline-grid">
+            <div className="pipeline-step">
+              <div className="step-badge">
+                <Camera size={18} />
+                <span className="step-num">01</span>
               </div>
+              <h3 className="step-title">Frame Acquisition</h3>
+              <p className="step-desc">
+                Continuous video capture via OpenCV capturing user upper-body posture at steady sampling intervals.
+              </p>
             </div>
-            <div className="workflow-step">
-              <div className="step-number">2</div>
-              <div className="step-content">
-                <h3>Analyze</h3>
-                <p>AI models detect body landmarks and angles</p>
+
+            <div className="pipeline-step">
+              <div className="step-badge">
+                <ScanEye size={18} />
+                <span className="step-num">02</span>
               </div>
+              <h3 className="step-title">Pose Landmark Estimation</h3>
+              <p className="step-desc">
+                Extraction of 3D anatomical keypoints (nose, ears, shoulders, hips) using Google MediaPipe Pose models.
+              </p>
             </div>
-            <div className="workflow-step">
-              <div className="step-number">3</div>
-              <div className="step-content">
-                <h3>Classify</h3>
-                <p>System classifies posture as Good, Warning, or Bad</p>
+
+            <div className="pipeline-step">
+              <div className="step-badge">
+                <Cpu size={18} />
+                <span className="step-num">03</span>
               </div>
+              <h3 className="step-title">Biomechanic Classification</h3>
+              <p className="step-desc">
+                Dual classification engine: geometric angular rule verification or trained ML classifier evaluating alignment deviations.
+              </p>
             </div>
-            <div className="workflow-step">
-              <div className="step-number">4</div>
-              <div className="step-content">
-                <h3>Alert</h3>
-                <p>User receives immediate feedback and recommendations</p>
+
+            <div className="pipeline-step">
+              <div className="step-badge">
+                <Activity size={18} />
+                <span className="step-num">04</span>
               </div>
+              <h3 className="step-title">Telemetry & Scoring</h3>
+              <p className="step-desc">
+                Computation of the Posture Confidence Score (PCS), sedentary timer accumulation, and live ergonomic feedback.
+              </p>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="about-section">
-          <h2>🎓 Academic Information</h2>
-          <div className="academic-info">
-            <div className="info-row">
-              <span className="info-label">Project Type:</span>
-              <span className="info-value">Live In Lab Project</span>
+        {/* Technology Architecture */}
+        <section className="about-card">
+          <div className="section-header-group">
+            <FileCode2 size={20} className="section-icon" />
+            <h2 className="section-title">Technology Stack</h2>
+          </div>
+
+          <div className="tech-stack-grid">
+            <div className="tech-card">
+              <span className="tech-category">Frontend Client</span>
+              <strong className="tech-name">React & Vanilla CSS</strong>
+              <p className="tech-details">Single-page application with Recharts telemetry visualization and Lucide icons.</p>
             </div>
-            <div className="info-row">
-              <span className="info-label">Domain:</span>
-              <span className="info-value">Computer Vision & Machine Learning</span>
+
+            <div className="tech-card">
+              <span className="tech-category">Computer Vision</span>
+              <strong className="tech-name">MediaPipe & OpenCV</strong>
+              <p className="tech-details">Real-time landmark detection and video frame processing pipeline in Python.</p>
             </div>
-            <div className="info-row">
-              <span className="info-label">Year:</span>
-              <span className="info-value">2025</span>
+
+            <div className="tech-card">
+              <span className="tech-category">Backend API</span>
+              <strong className="tech-name">Python Flask Server</strong>
+              <p className="tech-details">RESTful telemetry endpoints, multi-threaded camera worker, and analytics tracking.</p>
             </div>
-            <div className="info-row">
-              <span className="info-label">Status:</span>
-              <span className="info-value status-active">Yet to deploy<ExclamationOutlined /></span>
+
+            <div className="tech-card">
+              <span className="tech-category">Authentication & DB</span>
+              <strong className="tech-name">Firebase & SQLite / Postgres</strong>
+              <p className="tech-details">Secure user authentication and persistent posture telemetry history logging.</p>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="about-section">
-          <h2>💡 Project Goals</h2>
-          <ul className="goals-list">
-            <li>Promote better posture awareness and ergonomic practices</li>
-            <li>Reduce health issues related to poor sitting posture</li>
-            <li>Provide an accessible, user-friendly monitoring solution</li>
-            <li>Demonstrate practical application of AI in healthcare</li>
-            <li>Create a scalable system for workplace wellness programs</li>
-          </ul>
-        </div>
-
-        <div className="about-footer">
-          <div className="footer-content">
-            <p>© 2025 VertAIx - Posture Detection System</p>
-            <p className="footer-tagline">Built for better health and productivity</p>
+        {/* Academic & Project Context */}
+        <section className="about-card">
+          <div className="section-header-group">
+            <BookOpen size={20} className="section-icon" />
+            <h2 className="section-title">Project & Research Scope</h2>
           </div>
-        </div>
+
+          <div className="scope-list">
+            <div className="scope-item">
+              <CheckCircle2 size={16} className="scope-icon" />
+              <span>Evaluate non-invasive computer vision for desktop ergonomic posture classification.</span>
+            </div>
+            <div className="scope-item">
+              <CheckCircle2 size={16} className="scope-icon" />
+              <span>Provide empirical posture confidence metrics (PCS) based on geometric spatial angles.</span>
+            </div>
+            <div className="scope-item">
+              <CheckCircle2 size={16} className="scope-icon" />
+              <span>Support dual-engine evaluation comparing explicit geometric rules with trained machine learning models.</span>
+            </div>
+            <div className="scope-item">
+              <CheckCircle2 size={16} className="scope-icon" />
+              <span>Promote proactive ergonomic awareness through continuous sedentary duration monitoring.</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="about-footer-card">
+          <p className="footer-title">VertAIx — Vision-Based Posture Monitoring System</p>
+          <p className="footer-meta">Final Year Engineering Research Project • 2025</p>
+        </footer>
       </div>
     </div>
   );

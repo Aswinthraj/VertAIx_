@@ -1,63 +1,93 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
 .App {
   min-height: 100vh;
-  font-family: 'Playfair Display', serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-cool-white);
+  color: var(--text-navy);
+  font-family: var(--font-sans);
+  display: flex;
+  flex-direction: column;
 }
 
-/* Custom Toast Styling */
+/* ── Custom Toast Styling (Precise & Semantic) ── */
+.Toastify__toast-container {
+  z-index: 9999;
+}
+
 .Toastify__toast {
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  font-family: inherit;
-  color: #fff;
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 30px rgba(23, 50, 77, 0.12), 0 1px 3px rgba(23, 50, 77, 0.08);
+  font-family: var(--font-sans);
+  background-color: var(--surface-white);
+  color: var(--text-navy);
+  border: 1px solid var(--border-color);
+  padding: 14px 18px;
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
-.Toastify__toast-body,
-.Toastify__close-button {
-  color: #fff;
+.Toastify__toast-body {
+  color: var(--text-navy);
+  font-weight: 500;
+  padding: 0;
+  margin: 0;
 }
 
 .Toastify__close-button {
-  opacity: 0.9;
+  color: var(--text-slate);
+  opacity: 0.7;
+}
+
+.Toastify__close-button:hover {
+  opacity: 1;
+  color: var(--text-navy);
 }
 
 .Toastify__toast--success {
-  background: linear-gradient(135deg, #4caf50, #81c784);
-}
-
-.Toastify__toast--error {
-  background: linear-gradient(135deg, #f44336, #e57373);
+  border-left: 4px solid var(--status-good);
 }
 
 .Toastify__toast--warning {
-  background: linear-gradient(135deg, #ff9800, #ffb74d);
+  border-left: 4px solid var(--status-warning);
+}
+
+.Toastify__toast--error {
+  border-left: 4px solid var(--status-bad);
 }
 
 .Toastify__toast--info {
-  background: linear-gradient(135deg, #2196f3, #64b5f6);
+  border-left: 4px solid var(--accent-teal);
 }
 
-/* Scrollbar Styling */
+.Toastify__progress-bar--success {
+  background: var(--status-good);
+}
+
+.Toastify__progress-bar--warning {
+  background: var(--status-warning);
+}
+
+.Toastify__progress-bar--error {
+  background: var(--status-bad);
+}
+
+.Toastify__progress-bar--info {
+  background: var(--accent-teal);
+}
+
+/* ── Refined Scrollbar Styling ── */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--bg-cool-white);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  border-radius: 5px;
+  background: #C4D1D9;
+  border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #764ba2, #667eea);
+  background: #9BB0BE;
 }
