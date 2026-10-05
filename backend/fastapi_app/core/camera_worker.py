@@ -31,7 +31,7 @@ class CameraWorker:
     FastAPI-compatible Camera Worker Wrapper.
     Reuses the existing MediaPipe, VertAIxPSF posture analyzer, primary-user tracker,
     sedentary tracker, and Random Forest classifier without changing the core algorithms.
-    Decoupled from Flask database contexts and Groq API calls.
+    Thread-safe and decoupled from external blocking calls.
     """
 
     def __init__(self, model_path: Path | str | None = None) -> None:
