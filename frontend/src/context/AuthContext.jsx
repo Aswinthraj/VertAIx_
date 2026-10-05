@@ -5,6 +5,7 @@ import {
   loginUser,
   registerUser,
   logoutUser,
+  endSession,
   getCurrentUser,
   getAccessToken,
   getStoredUser,
@@ -118,6 +119,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      await endSession().catch(() => {});
       await logoutUser();
     } catch (err) {
       console.warn('[VertAIx] Logout error:', err);

@@ -181,8 +181,14 @@ class CameraWorker:
         with self._lock:
             return self.mode
 
+    def ensure_user_session(self, user_id: str) -> None:
+        """Ensures the user trackers and active state are running without wiping ongoing sedentary duration."""
+        with self._lock:
+            self.active_user_id = str(user_id)
+            self._ensure_user_state(self.active_user_id)
+
     def reset_user_session(self, user_id: str) -> None:
-        """Resets the sedentary tracker and user lock for a new session."""
+        """Resets the sedentary tracker and user lock for a brand new session."""
         with self._lock:
             self.active_user_id = str(user_id)
             if user_id in self.sedentary_trackers:

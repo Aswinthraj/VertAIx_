@@ -3,10 +3,10 @@ import {
   getPostureStatus,
   getLLMAdvice,
   startSession,
-  endSession,
   getAnalytics,
   setDetectionMode,
-  getDetectionMode
+  getDetectionMode,
+  getHistory
 } from '../services/api';
 import { toast } from 'react-toastify';
 import { audioManager } from '../utils/audioManager';
@@ -61,9 +61,26 @@ const Dashboard = () => {
 
   // Initialize session and poll data
   useEffect(() => {
+    // Ensure active session continues
     startSession().catch(err => {
-      console.error('Failed to start session:', err);
+      console.debug('Session ensure skipped/active:', err);
     });
+
+    // Preload recent PCS telemetry trend points from database
+    getHistory(30)
+      .then(res => {
+        if (res && res.history && res.history.length > 0) {
+          const loaded = res.history
+            .slice()
+            .reverse()
+            .map(h => ({
+              time: h.time || (h.timestamp ? h.timestamp.split(' ')[1] : ''),
+              pcs: Number(h.pcs.toFixed(1))
+            }));
+          setPcsHistory(loaded);
+        }
+      })
+      .catch(err => console.debug('History preload skipped:', err));
 
     getDetectionMode()
       .then(data => setDetectionModeState(data.mode || 'rule'))
@@ -86,9 +103,6 @@ const Dashboard = () => {
       if (typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
       }
-      endSession().catch(err => {
-        console.error('Failed to end session:', err);
-      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
