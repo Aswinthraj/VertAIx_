@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 15
     jwt_refresh_token_expire_days: int = 30
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    groq_api_key: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=("backend/.env", ".env"),

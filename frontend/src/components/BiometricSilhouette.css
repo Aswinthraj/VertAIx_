@@ -1,0 +1,173 @@
+.biometric-silhouette-card {
+  background: var(--surface-white);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.biometric-silhouette-card:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.silhouette-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.silhouette-kicker {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-slate);
+}
+
+.silhouette-heading {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--brand-navy);
+  margin: 0.15rem 0 0;
+}
+
+.tracking-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--brand-navy);
+  background: var(--surface-subtle);
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+}
+
+.tracking-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.tracking-dot.locked {
+  background-color: var(--accent-teal);
+  box-shadow: 0 0 8px var(--accent-teal);
+}
+
+.tracking-dot.scanning {
+  background-color: var(--status-warning);
+  animation: scanningBlink 1s infinite alternate;
+}
+
+@keyframes scanningBlink {
+  0% { opacity: 0.3; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1.2); }
+}
+
+.silhouette-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+  aspect-ratio: 1 / 1;
+  background: radial-gradient(circle at 50% 45%, rgba(14, 143, 156, 0.06) 0%, rgba(23, 50, 77, 0.02) 70%, transparent 100%);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.5rem;
+  overflow: hidden;
+}
+
+.ergonomic-grid-bg {
+  position: absolute;
+  inset: 0;
+  background-size: 20px 20px;
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  pointer-events: none;
+}
+
+.plumb-line {
+  position: absolute;
+  left: 50%;
+  top: 10%;
+  bottom: 15%;
+  width: 1px;
+  background: dashed 1px rgba(14, 143, 156, 0.3);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.biometric-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  position: relative;
+  z-index: 1;
+}
+
+.spine-path {
+  transition: d 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), stroke 0.4s ease;
+}
+
+.vertebra-node {
+  transition: all 0.4s ease;
+}
+
+.stress-pulse-ring {
+  animation: stressPulse 1.4s infinite ease-out;
+  transform-origin: 150px 115px;
+}
+
+@keyframes stressPulse {
+  0% { transform: scale(0.7); opacity: 0.9; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.silhouette-hud-footer {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  position: relative;
+  z-index: 2;
+  margin-top: -10px;
+}
+
+.hud-metric-pill {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.45rem;
+  text-align: center;
+  box-shadow: var(--shadow-subtle);
+}
+
+.hud-metric-pill .pill-label {
+  display: block;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  color: var(--text-slate);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.hud-metric-pill .pill-val {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--brand-navy);
+  font-family: var(--font-mono, monospace);
+  margin-top: 0.1rem;
+}

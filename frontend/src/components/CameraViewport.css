@@ -1,0 +1,401 @@
+.camera-viewport-card {
+  background: var(--surface-white);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.camera-viewport-card:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.viewport-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.85rem;
+}
+
+.viewport-kicker {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-slate);
+}
+
+.viewport-heading {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--brand-navy);
+  margin: 0.15rem 0 0;
+}
+
+.camera-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-color);
+  color: var(--brand-navy);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.camera-toggle-btn:hover {
+  background: #E2E8F0;
+}
+
+.camera-toggle-btn.active {
+  background: rgba(16, 185, 129, 0.15);
+  color: #065F46;
+  border-color: #A7F3D0;
+}
+
+/* ── Screen Viewport ── */
+.viewport-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: #0B1724;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid #1E3A5F;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
+}
+
+.viewport-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* Mirror view for natural interaction */
+}
+
+.viewport-video.hidden {
+  display: none;
+}
+
+.viewport-video.visible {
+  display: block;
+}
+
+/* ── Hologram Fallback Screen ── */
+.hologram-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 50%, #17324D 0%, #0A1624 100%);
+  color: #FFFFFF;
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.hologram-scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #22D3EE, transparent);
+  box-shadow: 0 0 10px #22D3EE;
+  animation: scanlineMove 3.5s infinite linear;
+  pointer-events: none;
+}
+
+@keyframes scanlineMove {
+  0% { top: 0; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+.hologram-target-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: 2px dashed rgba(34, 211, 238, 0.6);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  animation: targetSpin 20s infinite linear;
+}
+
+@keyframes targetSpin {
+  100% { transform: rotate(360deg); }
+}
+
+.target-crosshair {
+  position: absolute;
+  background: rgba(34, 211, 238, 0.4);
+}
+
+.target-crosshair.vertical {
+  width: 1px;
+  height: 100%;
+  left: 50%;
+}
+
+.target-crosshair.horizontal {
+  height: 1px;
+  width: 100%;
+  top: 50%;
+}
+
+.target-head-silhouette {
+  width: 38px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+}
+
+.hologram-text {
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #E2E8F0;
+  margin: 0;
+}
+
+.hologram-start-btn {
+  margin-top: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  background: linear-gradient(135deg, #0E8F9C 0%, #17324D 100%);
+  border: 1px solid #22D3EE;
+  color: #FFFFFF;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+  transition: all 0.25s ease;
+}
+
+.hologram-start-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(34, 211, 238, 0.6);
+  background: linear-gradient(135deg, #0B737D 0%, #102438 100%);
+}
+
+.hologram-subtext {
+  font-size: 0.75rem;
+  color: #94A3B8;
+  margin-top: 0.35rem;
+}
+
+/* ── HUD Tactical Overlay ── */
+.hud-overlay-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(10, 22, 36, 0.75);
+  backdrop-filter: blur(6px);
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  color: #22D3EE;
+  font-size: 0.68rem;
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.hud-badge.top-left {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+}
+
+.hud-badge.top-right {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
+.hud-pulse-light {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #10B981;
+  animation: hudPulse 1.2s infinite;
+}
+
+@keyframes hudPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.8); }
+}
+
+.hud-divider {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Corner Reticle Brackets */
+.hud-corner-bracket {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: rgba(34, 211, 238, 0.8);
+  border-style: solid;
+}
+
+.hud-corner-bracket.top-l { top: 0.75rem; left: 0.75rem; border-width: 2px 0 0 2px; }
+.hud-corner-bracket.top-r { top: 0.75rem; right: 0.75rem; border-width: 2px 2px 0 0; }
+.hud-corner-bracket.bot-l { bottom: 0.75rem; left: 0.75rem; border-width: 0 0 2px 2px; }
+.hud-corner-bracket.bot-r { bottom: 0.75rem; right: 0.75rem; border-width: 0 2px 2px 0; }
+
+.hud-eye-guide {
+  position: absolute;
+  top: 36%;
+  left: 5%;
+  right: 5%;
+  border-top: 1px dashed rgba(34, 211, 238, 0.3);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.guide-label {
+  font-size: 0.58rem;
+  color: rgba(34, 211, 238, 0.7);
+  font-family: var(--font-mono, monospace);
+  padding: 0.15rem 0.35rem;
+  background: rgba(10, 22, 36, 0.75);
+  margin-top: -8px;
+  border-radius: 2px;
+}
+
+.hud-state-banner {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.hud-state-banner.good {
+  background: rgba(6, 95, 70, 0.85);
+  color: #ECFDF5;
+  border: 1px solid #10B981;
+}
+
+.hud-state-banner.warning {
+  background: rgba(146, 64, 14, 0.85);
+  color: #FFFBEB;
+  border: 1px solid #F59E0B;
+}
+
+.hud-state-banner.bad {
+  background: rgba(153, 27, 27, 0.85);
+  color: #FEF2F2;
+  border: 1px solid #EF4444;
+}
+
+.viewport-notice-bar {
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  color: #DC2626;
+  background: #FEF2F2;
+  border-radius: var(--radius-sm);
+  margin-top: 0.5rem;
+}
+
+/* ── Interactive Simulator Toolbar ── */
+.simulator-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--surface-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.simulator-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--brand-navy);
+}
+
+.simulator-buttons {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.sim-btn {
+  border: 1px solid transparent;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sim-btn.good {
+  background: #ECFDF5;
+  color: #065F46;
+  border-color: #A7F3D0;
+}
+.sim-btn.good:hover {
+  background: #D1FAE5;
+}
+
+.sim-btn.warning {
+  background: #FFFBEB;
+  color: #92400E;
+  border-color: #FDE68A;
+}
+.sim-btn.warning:hover {
+  background: #FEF3C7;
+}
+
+.sim-btn.bad {
+  background: #FEF2F2;
+  color: #991B1B;
+  border-color: #FECACA;
+}
+.sim-btn.bad:hover {
+  background: #FEE2E2;
+}

@@ -64,8 +64,8 @@ class CameraWorker:
         self.ml_model_loaded = False
         self._load_ml_model()
 
-        # Detection mode: 'rule' or 'ml'
-        self.mode: str = "rule"
+        # Detection mode: default to 'ml' when available, else 'rule'
+        self.mode: str = "ml" if self.ml_model_loaded else "rule"
 
         # Active user ID for real-time tracking
         self.active_user_id: str = "default_user"
@@ -325,6 +325,16 @@ class CameraWorker:
                 )
                 recommendations = []
 
+            # Calculate human-readable deviation angles for UI meters
+            if landmarks_detected:
+                ui_neck_angle = round(abs(180.0 - current_neck_angle), 2)
+                ui_shoulder_angle = round(abs(90.0 - current_shoulder_angle), 2)
+                ui_spine_angle = round(abs(180.0 - current_spine_angle), 2)
+            else:
+                ui_neck_angle = 0.0
+                ui_shoulder_angle = 0.0
+                ui_spine_angle = 0.0
+
             update_posture(
                 user_id=user_id,
                 status=status,
@@ -332,6 +342,10 @@ class CameraWorker:
                 alert=alert,
                 sedentary_time=sedentary_time,
                 recommendations=recommendations,
+                neck_angle=ui_neck_angle,
+                shoulder_angle=ui_shoulder_angle,
+                spine_angle=ui_spine_angle,
+                landmarks_detected=landmarks_detected,
             )
 
             return {
@@ -340,9 +354,9 @@ class CameraWorker:
                 "alert": alert,
                 "sedentary_time": sedentary_time,
                 "recommendations": recommendations,
-                "neck_angle": current_neck_angle,
-                "shoulder_angle": current_shoulder_angle,
-                "spine_angle": current_spine_angle,
+                "neck_angle": ui_neck_angle,
+                "shoulder_angle": ui_shoulder_angle,
+                "spine_angle": ui_spine_angle,
                 "landmarks_detected": landmarks_detected,
             }
 

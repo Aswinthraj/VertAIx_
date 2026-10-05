@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -13,12 +13,65 @@ import {
   FileSpreadsheet,
   Cpu,
   Clock,
-  HelpCircle
+  HelpCircle,
+  Zap,
+  AlertTriangle
 } from 'lucide-react';
 import './Landing.css';
 
+const DEMO_STATES = {
+  good: {
+    label: 'GOOD POSTURE',
+    pcs: 94.2,
+    engine: 'ML-Based (Random Forest)',
+    neck: 6.5,
+    shoulder: 1.8,
+    spine: 3.2,
+    status: 'OPTIMAL ALIGNMENT',
+    alert: false,
+    color: '#10B981',
+    tip: 'Spinal curvature & cervical neck angle within optimal ergonomic thresholds.'
+  },
+  warning: {
+    label: 'POSTURE WARNING',
+    pcs: 63.8,
+    engine: 'ML-Based (Random Forest)',
+    neck: 21.4,
+    shoulder: 7.2,
+    spine: 14.8,
+    status: 'FORWARD HEAD LEAN',
+    alert: false,
+    color: '#F59E0B',
+    tip: 'Forward head tilt detected. Minor chin-tuck and display elevation recommended.'
+  },
+  bad: {
+    label: 'BAD POSTURE',
+    pcs: 36.5,
+    engine: 'ML-Based (Random Forest)',
+    neck: 33.2,
+    shoulder: 16.5,
+    spine: 27.0,
+    status: 'CRITICAL DEVIATION',
+    alert: true,
+    color: '#EF4444',
+    tip: 'Significant spinal slouch detected. Please sit upright and realign shoulders.'
+  }
+};
+
 const Landing = () => {
   const { isAuthenticated } = useAuth();
+  const [activeDemo, setActiveDemo] = useState('good');
+  const [radarScanAngle, setRadarScanAngle] = useState(0);
+
+  const currentData = DEMO_STATES[activeDemo];
+
+  // Subtle continuous radar sweep animation
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRadarScanAngle((prev) => (prev + 3) % 360);
+    }, 40);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <div className="landing-page">
@@ -28,7 +81,7 @@ const Landing = () => {
           <div className="hero-content">
             <div className="hero-badge">
               <span className="badge-pulse" />
-              <span>Computer-Vision Posture Monitoring</span>
+              <span>Real-Time Biometric Pose Telemetry</span>
             </div>
             
             <h1 className="hero-title">
@@ -36,7 +89,7 @@ const Landing = () => {
             </h1>
 
             <p className="hero-description">
-              VertAIx leverages continuous optical pose estimation to analyze sitting alignment, compute real-time Posture Confidence Scores (PCS), and deliver ergonomic alerts directly in your browser.
+              VertAIx combines high-frequency computer vision pose tracking with trained machine learning classifiers to analyze sitting alignment, compute live Posture Confidence Scores (PCS), and deliver ergonomic advice directly in your browser.
             </p>
 
             <div className="hero-cta-group">
@@ -76,6 +129,7 @@ const Landing = () => {
             </div>
           </div>
 
+          {/* Interactive Hero Biometric Telemetry Station */}
           <div className="hero-preview-panel">
             <div className="preview-terminal">
               <div className="terminal-header">
@@ -85,40 +139,140 @@ const Landing = () => {
                   <span className="dot green" />
                 </div>
                 <div className="terminal-title">
-                  <ScanEye size={14} />
-                  <span>runtime.telemetry.active</span>
+                  <ScanEye size={14} className="cyan-glow-icon" />
+                  <span>runtime.telemetry.interactive</span>
                 </div>
-                <span className="terminal-status-pill">MONITORING</span>
+                <span className="terminal-status-pill" style={{ color: currentData.color, borderColor: currentData.color }}>
+                  {currentData.status}
+                </span>
               </div>
-              <div className="terminal-body">
-                <div className="terminal-row">
-                  <span className="t-label">CLASSIFICATION:</span>
-                  <span className="t-val-good">GOOD POSTURE (92.4% PCS)</span>
+
+              {/* Interactive State Demo Selector */}
+              <div className="hero-demo-selector">
+                <span className="demo-selector-label">
+                  <Zap size={13} />
+                  <span>Interactive Posture Sandbox:</span>
+                </span>
+                <div className="demo-button-group">
+                  <button
+                    className={`demo-btn ${activeDemo === 'good' ? 'active-good' : ''}`}
+                    onClick={() => setActiveDemo('good')}
+                  >
+                    Good (94%)
+                  </button>
+                  <button
+                    className={`demo-btn ${activeDemo === 'warning' ? 'active-warn' : ''}`}
+                    onClick={() => setActiveDemo('warning')}
+                  >
+                    Text Neck (64%)
+                  </button>
+                  <button
+                    className={`demo-btn ${activeDemo === 'bad' ? 'active-bad' : ''}`}
+                    onClick={() => setActiveDemo('bad')}
+                  >
+                    Slouch (36%)
+                  </button>
                 </div>
-                <div className="terminal-row">
-                  <span className="t-label">DETECTION ENGINE:</span>
-                  <span className="t-val">RULE-BASED GEOMETRIC</span>
+              </div>
+
+              {/* Biometric Avatar & Kinematics Visualizer in Terminal */}
+              <div className="terminal-visual-area">
+                <div className="terminal-silhouette-box">
+                  <svg className="hero-silhouette-svg" viewBox="0 0 200 180">
+                    <defs>
+                      <filter id="heroGlow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="3" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                      </filter>
+                    </defs>
+
+                    {/* Holographic Radar Sweep Line */}
+                    <line
+                      x1="100"
+                      y1="90"
+                      x2={100 + 80 * Math.cos((radarScanAngle * Math.PI) / 180)}
+                      y2={90 + 80 * Math.sin((radarScanAngle * Math.PI) / 180)}
+                      stroke="rgba(0, 212, 184, 0.25)"
+                      strokeWidth="2"
+                    />
+
+                    {/* Neutral Reference Axis */}
+                    <line x1="100" y1="20" x2="100" y2="160" stroke="rgba(255, 255, 255, 0.15)" strokeDasharray="3 3" />
+
+                    {/* Animated Spine Vertebrae Path */}
+                    <path
+                      d={`M ${100 + currentData.neck * 1.1} 55 Q ${100 + currentData.spine * 1.2} 105, 100 160`}
+                      fill="none"
+                      stroke={currentData.color}
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      filter="url(#heroGlow)"
+                      style={{ transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                    />
+
+                    {/* Clavicle / Shoulder Beam */}
+                    <line
+                      x1="60"
+                      y1={75 - currentData.shoulder * 0.7}
+                      x2="140"
+                      y2={75 + currentData.shoulder * 0.7}
+                      stroke={currentData.color}
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      style={{ transition: 'all 0.5s ease' }}
+                    />
+                    <circle cx="60" cy={75 - currentData.shoulder * 0.7} r="5" fill="#0B132B" stroke={currentData.color} strokeWidth="2" />
+                    <circle cx="140" cy={75 + currentData.shoulder * 0.7} r="5" fill="#0B132B" stroke={currentData.color} strokeWidth="2" />
+
+                    {/* Cranium Head Silhouette */}
+                    <ellipse
+                      cx={100 + currentData.neck * 1.1}
+                      cy={36}
+                      rx="16"
+                      ry="19"
+                      fill="#1E293B"
+                      stroke={currentData.color}
+                      strokeWidth="2.5"
+                      filter="url(#heroGlow)"
+                      style={{ transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+                    />
+                  </svg>
                 </div>
-                <div className="terminal-row">
-                  <span className="t-label">NECK INCLINATION:</span>
-                  <span className="t-val">12.8° (NORMAL ALIGNMENT)</span>
+
+                {/* Score Dial & Live Angle Gauges */}
+                <div className="terminal-metrics-box">
+                  <div className="hero-pcs-display">
+                    <span className="hero-pcs-num" style={{ color: currentData.color }}>
+                      {currentData.pcs.toFixed(1)}%
+                    </span>
+                    <span className="hero-pcs-caption">POSTURE CONFIDENCE</span>
+                  </div>
+
+                  <div className="hero-angle-tags">
+                    <div className="hero-angle-chip">
+                      <span>Cervical Pitch:</span>
+                      <strong style={{ color: currentData.color }}>{currentData.neck.toFixed(1)}°</strong>
+                    </div>
+                    <div className="hero-angle-chip">
+                      <span>Clavicle Tilt:</span>
+                      <strong>{currentData.shoulder.toFixed(1)}°</strong>
+                    </div>
+                    <div className="hero-angle-chip">
+                      <span>Spine Angle:</span>
+                      <strong>{currentData.spine.toFixed(1)}°</strong>
+                    </div>
+                  </div>
                 </div>
-                <div className="terminal-row">
-                  <span className="t-label">SHOULDER TILT:</span>
-                  <span className="t-val">2.1° (BALANCED)</span>
-                </div>
-                <div className="terminal-row">
-                  <span className="t-label">SEDENTARY TIMER:</span>
-                  <span className="t-val">24 min 18 sec</span>
-                </div>
-                <div className="terminal-row">
-                  <span className="t-label">BUFFER SMOOTHING:</span>
-                  <span className="t-val">30-Frame Rolling Average</span>
-                </div>
-                <div className="terminal-alert-box">
-                  <CheckCircle2 size={16} className="t-icon-good" />
-                  <span>Spinal alignment within recommended ergonomic thresholds.</span>
-                </div>
+              </div>
+
+              {/* Dynamic Guidance Tip */}
+              <div className="terminal-alert-box" style={{ borderColor: currentData.color }}>
+                {currentData.alert ? (
+                  <AlertTriangle size={16} style={{ color: currentData.color, flexShrink: 0 }} />
+                ) : (
+                  <CheckCircle2 size={16} style={{ color: currentData.color, flexShrink: 0 }} />
+                )}
+                <span>{currentData.tip}</span>
               </div>
             </div>
           </div>
@@ -158,7 +312,7 @@ const Landing = () => {
               </div>
               <h3 className="step-card-title">Landmark Coordinate Extraction</h3>
               <p className="step-card-text">
-                MediaPipe Pose predicts 3D coordinates for facial and upper-body keypoints: nose, ears, shoulders, and hip anchors.
+                MediaPipe Pose predicts 3D coordinates for facial and upper-body keypoints: nose, ears, shoulders, and clavicle anchors.
               </p>
             </div>
 
@@ -169,7 +323,7 @@ const Landing = () => {
               </div>
               <h3 className="step-card-title">Angular &amp; ML Classification</h3>
               <p className="step-card-text">
-                Evaluates neck tilt, shoulder symmetry, and forward lean via geometric angular bounds or trained Random Forest classification.
+                Evaluates neck tilt, shoulder symmetry, and forward lean via trained Random Forest machine learning models.
               </p>
             </div>
 
@@ -208,7 +362,7 @@ const Landing = () => {
               </div>
               <h3 className="feature-title">Live Posture Scoring (PCS)</h3>
               <p className="feature-description">
-                Continuous 0–100 score classifying posture state as <strong>Good</strong> (&ge;80%), <strong>Warning</strong> (50–79%), or <strong>Bad</strong> (&lt;50%).
+                Continuous 0–100 score classifying posture state as <strong>Optimal</strong> (&ge;75%), <strong>Warning</strong> (50–74%), or <strong>Critical</strong> (&lt;50%).
               </p>
             </div>
 
@@ -216,9 +370,9 @@ const Landing = () => {
               <div className="feature-icon-box">
                 <Cpu size={22} />
               </div>
-              <h3 className="feature-title">Dual Classification Modes</h3>
+              <h3 className="feature-title">Trained ML Classification</h3>
               <p className="feature-description">
-                Switch seamlessly between Rule-Based geometric thresholds and a trained Random Forest ML model to compare classification behaviors.
+                Powered by a calibrated Random Forest classifier trained on 2,000+ real-world webcam posture frames for high accuracy.
               </p>
             </div>
 

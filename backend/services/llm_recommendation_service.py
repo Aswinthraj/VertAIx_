@@ -21,7 +21,24 @@ VARIED_FOCUS_AREAS = [
 ]
 
 def get_llm_recommendation(summary):
-    groq_api_key = os.getenv("GROQ_API_KEY")
+    groq_api_key = None
+    try:
+        from fastapi_app.config import get_settings
+        groq_api_key = get_settings().groq_api_key
+    except Exception:
+        pass
+
+    if not groq_api_key:
+        groq_api_key = os.getenv("GROQ_API_KEY")
+
+    if not groq_api_key:
+        try:
+            import dotenv
+            dotenv.load_dotenv("backend/.env")
+            dotenv.load_dotenv(".env")
+            groq_api_key = os.getenv("GROQ_API_KEY")
+        except Exception:
+            pass
 
     if not groq_api_key or groq_api_key == "your_groq_api_key_here":
         raise ValueError("GROQ_API_KEY not configured in .env file")

@@ -14,7 +14,9 @@ _posture_data = {}
 
 
 def update_posture(user_id: str, status: str, pcs: float, alert: bool,
-                   sedentary_time: int = 0, recommendations=None):
+                   sedentary_time: int = 0, recommendations=None,
+                   neck_angle: float = 0.0, shoulder_angle: float = 0.0,
+                   spine_angle: float = 0.0, landmarks_detected: bool = False):
     """
     Updates the posture state for a specific user and global fallback.
     This function is thread-safe.
@@ -28,6 +30,10 @@ def update_posture(user_id: str, status: str, pcs: float, alert: bool,
         "alert": alert,
         "sedentary_time": sedentary_time,
         "recommendations": recommendations,
+        "neck_angle": round(float(neck_angle), 2),
+        "shoulder_angle": round(float(shoulder_angle), 2),
+        "spine_angle": round(float(spine_angle), 2),
+        "landmarks_detected": bool(landmarks_detected),
         "last_updated": time.strftime("%Y-%m-%d %H:%M:%S")
     }
 
@@ -57,5 +63,9 @@ def get_posture(user_id: str = "default_user"):
             "alert": False,
             "sedentary_time": 0,
             "recommendations": [],
+            "neck_angle": 0.0,
+            "shoulder_angle": 0.0,
+            "spine_angle": 0.0,
+            "landmarks_detected": False,
             "last_updated": None
         }

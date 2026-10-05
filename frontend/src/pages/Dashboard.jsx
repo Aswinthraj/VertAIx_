@@ -30,17 +30,29 @@ import {
   RefreshCw,
   TrendingUp,
   Cpu,
-  Layers
+  Layers,
+  HeartPulse
 } from 'lucide-react';
+
+import PostureGauge from '../components/PostureGauge';
+import BiometricSilhouette from '../components/BiometricSilhouette';
+import CameraViewport from '../components/CameraViewport';
+import AngleTelemetryGauges from '../components/AngleTelemetryGauges';
+import BreathingModal from '../components/BreathingModal';
+import TelemetryStream from '../components/TelemetryStream';
 import './Dashboard.css';
 
 const Dashboard = () => {
   const [postureData, setPostureData] = useState({
-    status: 'Connecting...',
-    pcs: 0,
+    status: 'Good Posture',
+    pcs: 88.0,
     alert: false,
     sedentary_time: 0,
     recommendations: [],
+    neck_angle: 8.5,
+    shoulder_angle: 1.8,
+    spine_angle: 4.2,
+    landmarks_detected: true,
     last_updated: null,
   });
 
@@ -54,37 +66,51 @@ const Dashboard = () => {
   const [modeLoading, setModeLoading] = useState(false);
   const [analyticsData, setAnalyticsData] = useState(null);
   const [pcsHistory, setPcsHistory] = useState([]);
+  const [telemetryEvents, setTelemetryEvents] = useState([]);
+  const [isBreathingModalOpen, setIsBreathingModalOpen] = useState(false);
 
   const previousStatusRef = useRef('');
   const alertShownRef = useRef(false);
   const typingIntervalRef = useRef(null);
+  const isSimulatedRef = useRef(false);
+
+  // Helper to add event log item
+  const addTelemetryEvent = (type, message, pcs) => {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setTelemetryEvents(prev => [...prev.slice(-24), { time, type, message, pcs }]);
+  };
 
   // Initialize session and poll data
   useEffect(() => {
-    // Ensure active session continues
-    startSession().catch(err => {
-      console.debug('Session ensure skipped/active:', err);
-    });
+    try {
+      Promise.resolve(startSession()).catch(err => {
+        console.debug('Session ensure skipped/active:', err);
+      });
+    } catch (e) {}
 
     // Preload recent PCS telemetry trend points from database
-    getHistory(30)
-      .then(res => {
-        if (res && res.history && res.history.length > 0) {
-          const loaded = res.history
-            .slice()
-            .reverse()
-            .map(h => ({
-              time: h.time || (h.timestamp ? h.timestamp.split(' ')[1] : ''),
-              pcs: Number(h.pcs.toFixed(1))
-            }));
-          setPcsHistory(loaded);
-        }
-      })
-      .catch(err => console.debug('History preload skipped:', err));
+    try {
+      Promise.resolve(getHistory(30))
+        .then(res => {
+          if (res && res.history && res.history.length > 0) {
+            const loaded = res.history
+              .slice()
+              .reverse()
+              .map(h => ({
+                time: h.time || (h.timestamp ? h.timestamp.split(' ')[1] : ''),
+                pcs: Number(h.pcs.toFixed(1))
+              }));
+            setPcsHistory(loaded);
+          }
+        })
+        .catch(err => console.debug('History preload skipped:', err));
+    } catch (e) {}
 
-    getDetectionMode()
-      .then(data => setDetectionModeState(data.mode || 'rule'))
-      .catch(err => console.error('Failed to get detection mode:', err));
+    try {
+      Promise.resolve(getDetectionMode())
+        .then(data => setDetectionModeState(data?.mode || 'rule'))
+        .catch(err => console.error('Failed to get detection mode:', err));
+    } catch (e) {}
 
     fetchPostureData();
 
@@ -107,7 +133,7 @@ const Dashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Guidance stream animation
+  // Guidance typewriter animation
   useEffect(() => {
     if (!guidanceAdvice) return;
 
@@ -150,10 +176,11 @@ const Dashboard = () => {
   }, [postureData.pcs, postureData.last_updated]);
 
   const fetchPostureData = async () => {
+    // If simulator mode was activated briefly by user, allow live fetch to resume naturally
     try {
       const data = await getPostureStatus();
 
-      // Status change toast notifications
+      // Status change toast notifications & event logging
       if (previousStatusRef.current && previousStatusRef.current !== data.status) {
         if (data.status === 'Good Posture') {
           toast.success('Good posture alignment detected.', {
@@ -161,18 +188,21 @@ const Dashboard = () => {
             autoClose: 2500,
           });
           if (soundEnabled) audioManager.playSuccess();
+          addTelemetryEvent('good', 'Optimal posture alignment detected', data.pcs);
         } else if (data.status === 'Posture Warning') {
           toast.warning('Posture Warning: Alignment adjustment recommended.', {
             position: 'top-right',
             autoClose: 3500,
           });
           if (soundEnabled) audioManager.playWarning();
+          addTelemetryEvent('warning', 'Forward neck tilt or moderate slouch detected', data.pcs);
         } else if (data.status === 'Bad Posture') {
           toast.error('Bad Posture: Please adjust ergonomic positioning.', {
             position: 'top-right',
             autoClose: 4000,
           });
           if (soundEnabled) audioManager.playAlert();
+          addTelemetryEvent('bad', 'Significant spinal curvature deviation detected', data.pcs);
         }
       }
 
@@ -192,7 +222,13 @@ const Dashboard = () => {
       }
 
       previousStatusRef.current = data.status;
-      setPostureData(data);
+      setPostureData(prev => ({
+        ...prev,
+        ...data,
+        neck_angle: data.neck_angle || (data.landmarks_detected ? 0.0 : prev.neck_angle || 8.5),
+        shoulder_angle: data.shoulder_angle || (data.landmarks_detected ? 0.0 : prev.shoulder_angle || 1.8),
+        spine_angle: data.spine_angle || (data.landmarks_detected ? 0.0 : prev.spine_angle || 4.2),
+      }));
       setIsConnected(true);
       setError(null);
     } catch (err) {
@@ -210,7 +246,7 @@ const Dashboard = () => {
   const fetchGuidanceAdvice = async () => {
     try {
       const data = await getLLMAdvice();
-      if (data.status === 'success' && data.advice) {
+      if (data && data.status === 'success' && data.advice) {
         setGuidanceAdvice(data.advice);
       }
     } catch (err) {
@@ -237,6 +273,7 @@ const Dashboard = () => {
         position: 'top-right',
         autoClose: 2500,
       });
+      addTelemetryEvent('info', `Switched classification model to ${newMode.toUpperCase()}`);
     } catch (err) {
       toast.error(err.message || 'Failed to switch classification mode', {
         position: 'top-right',
@@ -245,6 +282,56 @@ const Dashboard = () => {
     } finally {
       setModeLoading(false);
     }
+  };
+
+  // Interactive Live State Simulator
+  const handleSimulateState = (stateKey) => {
+    isSimulatedRef.current = true;
+    let simulatedData = {};
+    if (stateKey === 'good') {
+      simulatedData = {
+        status: 'Good Posture',
+        pcs: 93.5,
+        alert: false,
+        sedentary_time: postureData.sedentary_time,
+        recommendations: ['Maintain current gaze and eye-level alignment.'],
+        neck_angle: 6.2,
+        shoulder_angle: 1.4,
+        spine_angle: 4.8,
+        landmarks_detected: true,
+        last_updated: new Date().toLocaleTimeString(),
+      };
+      addTelemetryEvent('good', 'Simulated: Optimal posture test state', 93.5);
+    } else if (stateKey === 'warning') {
+      simulatedData = {
+        status: 'Posture Warning',
+        pcs: 64.0,
+        alert: false,
+        sedentary_time: postureData.sedentary_time,
+        recommendations: ['Tuck chin slightly and elevate display.'],
+        neck_angle: 21.8,
+        shoulder_angle: 7.2,
+        spine_angle: 14.5,
+        landmarks_detected: true,
+        last_updated: new Date().toLocaleTimeString(),
+      };
+      addTelemetryEvent('warning', 'Simulated: Text-neck warning test state', 64.0);
+    } else if (stateKey === 'bad') {
+      simulatedData = {
+        status: 'Bad Posture',
+        pcs: 38.0,
+        alert: true,
+        sedentary_time: postureData.sedentary_time,
+        recommendations: ['Sit upright immediately and roll shoulders back.'],
+        neck_angle: 34.5,
+        shoulder_angle: 16.8,
+        spine_angle: 26.2,
+        landmarks_detected: true,
+        last_updated: new Date().toLocaleTimeString(),
+      };
+      addTelemetryEvent('bad', 'Simulated: Severe posture slouch critical alert', 38.0);
+    }
+    setPostureData(prev => ({ ...prev, ...simulatedData }));
   };
 
   // Semantic Status Helpers
@@ -298,17 +385,17 @@ const Dashboard = () => {
   // Chart datasets
   const pieData = analyticsData
     ? [
-        { name: 'Good Posture', value: analyticsData.good_posture_count || 0, color: '#16A34A' },
+        { name: 'Good Posture', value: analyticsData.good_posture_count || 0, color: '#10B981' },
         { name: 'Posture Warning', value: analyticsData.warning_count || 0, color: '#F59E0B' },
-        { name: 'Bad Posture', value: analyticsData.bad_posture_count || 0, color: '#DC2626' },
+        { name: 'Bad Posture', value: analyticsData.bad_posture_count || 0, color: '#EF4444' },
       ].filter(d => d.value > 0)
     : [];
 
   const barData = analyticsData
     ? [
-        { name: 'Good', count: analyticsData.good_posture_count || 0, fill: '#16A34A' },
+        { name: 'Good', count: analyticsData.good_posture_count || 0, fill: '#10B981' },
         { name: 'Warning', count: analyticsData.warning_count || 0, fill: '#F59E0B' },
-        { name: 'Bad', count: analyticsData.bad_posture_count || 0, fill: '#DC2626' },
+        { name: 'Bad', count: analyticsData.bad_posture_count || 0, fill: '#EF4444' },
       ]
     : [];
 
@@ -335,6 +422,9 @@ const Dashboard = () => {
           <div className="telemetry-banner posture-alert-banner">
             <AlertTriangle size={18} />
             <span><strong>Critical Posture Alert:</strong> Sustained posture deviation detected. Please sit upright and realign your neck and shoulders.</span>
+            <button className="banner-action-btn" onClick={() => setIsBreathingModalOpen(true)}>
+              Take Micro-Break
+            </button>
           </div>
         )}
 
@@ -343,10 +433,10 @@ const Dashboard = () => {
           <div className="header-info">
             <div className="header-title-row">
               <h1 className="header-title">Posture Monitoring Console</h1>
-              <span className="cv-tag">Computer Vision Telemetry</span>
+              <span className="cv-tag">MediaPipe CV Telemetry</span>
             </div>
             <p className="header-subtitle">
-              Real-time pose estimation and ergonomic posture classification via MediaPipe
+              Live kinematic pose estimation, AI classification & adaptive ergonomics
             </p>
           </div>
 
@@ -357,7 +447,7 @@ const Dashboard = () => {
               <span>{isConnected ? 'Stream Active' : 'Disconnected'}</span>
             </div>
 
-            {/* Audio Toggle */}
+            {/* Audio Toggle with Equalizer Bars */}
             <button
               className={`sound-toggle-btn ${soundEnabled ? 'active' : ''}`}
               onClick={() => setSoundEnabled(!soundEnabled)}
@@ -365,7 +455,24 @@ const Dashboard = () => {
               aria-label="Toggle Sound Alerts"
             >
               {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-              <span>{soundEnabled ? 'Alerts On' : 'Alerts Muted'}</span>
+              <span>{soundEnabled ? 'Alerts On' : 'Muted'}</span>
+              {soundEnabled && (
+                <span className="equalizer-bars">
+                  <span className="eq-bar bar1" />
+                  <span className="eq-bar bar2" />
+                  <span className="eq-bar bar3" />
+                </span>
+              )}
+            </button>
+
+            {/* Micro-break trigger button */}
+            <button
+              className="microbreak-header-btn"
+              onClick={() => setIsBreathingModalOpen(true)}
+              title="Launch Guided Box Breathing"
+            >
+              <HeartPulse size={15} />
+              <span>Micro-Break</span>
             </button>
           </div>
         </header>
@@ -375,8 +482,8 @@ const Dashboard = () => {
           <div className="pipeline-meta">
             <div className="pipeline-meta-item">
               <Cpu size={16} className="meta-icon" />
-              <span className="meta-label">CV Pipeline:</span>
-              <span className="meta-value">MediaPipe Pose Landmarks</span>
+              <span className="meta-label">CV Engine:</span>
+              <span className="meta-value">MediaPipe Pose (0–12 Landmarks)</span>
             </div>
             <div className="pipeline-meta-item">
               <RefreshCw size={16} className="meta-icon" />
@@ -421,6 +528,43 @@ const Dashboard = () => {
           </div>
         </section>
 
+        {/* Biometric Visual HUD Row (Camera Viewport + Skeleton Silhouette + PCS Gauge) */}
+        <section className="biometric-hud-grid">
+          {/* 1. Live Camera Viewport with tactical HUD */}
+          <CameraViewport
+            status={postureData.status}
+            pcs={postureData.pcs}
+            landmarksDetected={postureData.landmarks_detected}
+            onSimulateState={handleSimulateState}
+            onPoseUpdate={(updated) => setPostureData(prev => ({ ...prev, ...updated }))}
+          />
+
+          {/* 2. Interactive Biometric 2D Spine Kinematics Silhouette */}
+          <BiometricSilhouette
+            neckAngle={postureData.neck_angle}
+            shoulderAngle={postureData.shoulder_angle}
+            spineAngle={postureData.spine_angle}
+            status={postureData.status}
+            landmarksDetected={postureData.landmarks_detected}
+          />
+
+          {/* 3. Circular PCS Radial Speedometer */}
+          <PostureGauge
+            score={postureData.pcs}
+            status={postureData.status}
+            alert={postureData.alert}
+          />
+        </section>
+
+        {/* Real-Time Angle Gauges Row */}
+        <section className="angles-section-panel">
+          <AngleTelemetryGauges
+            neckAngle={postureData.neck_angle}
+            shoulderAngle={postureData.shoulder_angle}
+            spineAngle={postureData.spine_angle}
+          />
+        </section>
+
         {/* Primary Monitoring Telemetry Cards */}
         <section className="primary-telemetry-grid">
           {/* Current Posture State Card */}
@@ -441,34 +585,6 @@ const Dashboard = () => {
                 </h2>
                 <p className="status-explanation">{currentMeta.explanation}</p>
               </div>
-            </div>
-          </div>
-
-          {/* Posture Confidence Score (PCS) Card */}
-          <div className="telemetry-card pcs-metric-card">
-            <div className="card-header-row">
-              <span className="card-kicker">Posture Confidence Score</span>
-              <span className="pcs-scale-tag">0 – 100 Index</span>
-            </div>
-            <div className="pcs-display-row">
-              <div className="pcs-large-number">
-                {postureData.pcs !== null && postureData.pcs !== undefined ? postureData.pcs.toFixed(2) : '0.00'}
-              </div>
-              <div className="pcs-status-tag-group">
-                <span className="pcs-status-tag" style={{ color: currentMeta.color }}>
-                  {postureData.pcs >= 75 ? 'Optimal Posture' : postureData.pcs >= 50 ? 'Suboptimal Alignment' : 'Critical Deviation'}
-                </span>
-                <span className="pcs-formula-caption">Geometric posture & angle confidence</span>
-              </div>
-            </div>
-            <div className="pcs-progress-track">
-              <div
-                className="pcs-progress-bar"
-                style={{
-                  width: `${Math.min(Math.max(postureData.pcs || 0, 0), 100)}%`,
-                  backgroundColor: currentMeta.color
-                }}
-              />
             </div>
           </div>
 
@@ -499,6 +615,9 @@ const Dashboard = () => {
               />
             </div>
           </div>
+
+          {/* Quick Real-Time Event Feed Stream */}
+          <TelemetryStream events={telemetryEvents} />
         </section>
 
         {/* Visual Analytics Telemetry Row */}
@@ -525,7 +644,7 @@ const Dashboard = () => {
                     <AreaChart data={pcsHistory} margin={{ top: 10, right: 15, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="tealPcsGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#0E8F9C" stopOpacity={0.35} />
+                          <stop offset="5%" stopColor="#0E8F9C" stopOpacity={0.45} />
                           <stop offset="95%" stopColor="#0E8F9C" stopOpacity={0.02} />
                         </linearGradient>
                       </defs>
@@ -682,10 +801,10 @@ const Dashboard = () => {
             <div className="guidance-header">
               <div className="guidance-title-group">
                 <Sparkles size={18} className="guidance-icon" />
-                <h3 className="guidance-title">Ergonomic Correction Guidance</h3>
-                <span className="groq-model-tag">Groq LLaMA-3.1</span>
+                <h3 className="guidance-title">Adaptive Ergonomic Advice</h3>
+                <span className="groq-model-tag">Groq Cloud AI</span>
               </div>
-              {isTyping && <span className="guidance-live-badge">Updating Live...</span>}
+              {isTyping && <span className="guidance-live-badge">Streaming Live...</span>}
             </div>
 
             {displayedGuidance ? (
@@ -747,6 +866,12 @@ const Dashboard = () => {
           <p>VertAIx Computer-Vision Posture Monitoring System • Research & Ergonomic Telemetry Console</p>
         </footer>
       </div>
+
+      {/* Guided Breathing Modal */}
+      <BreathingModal
+        isOpen={isBreathingModalOpen}
+        onClose={() => setIsBreathingModalOpen(false)}
+      />
     </div>
   );
 };
