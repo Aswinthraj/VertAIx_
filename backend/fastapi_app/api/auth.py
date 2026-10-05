@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from fastapi_app.core.dependencies import get_current_user
+from fastapi_app.core.rate_limit import auth_limiter, strict_limiter
 from fastapi_app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -63,7 +64,7 @@ def _issue_tokens(db: Session, user: User) -> TokenResponse:
     )
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(auth_limiter)])
 def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> TokenResponse:
     existing = db.scalar(
         select(User).where(or_(User.username == payload.username, User.email == payload.email))
@@ -86,7 +87,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> TokenRe
     return response
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, dependencies=[Depends(auth_limiter)])
 def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
     user = db.scalar(
         select(User).where(or_(User.username == payload.username, User.email == payload.username))
@@ -207,7 +208,7 @@ def delete_account(
     return MessageResponse(message="Account and associated telemetry data permanently deleted")
 
 
-@router.post("/forgot-password", response_model=MessageResponse)
+@router.post("/forgot-password", response_model=MessageResponse, dependencies=[Depends(strict_limiter)])
 def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)) -> MessageResponse:
     user = db.scalar(select(User).where(User.email == str(payload.email)))
     if user is not None:

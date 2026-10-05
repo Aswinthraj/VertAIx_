@@ -1,4 +1,5 @@
 from starlette.testclient import TestClient
+from fastapi_app.core.rate_limit import auth_limiter
 
 
 def test_register_success(client: TestClient) -> None:
@@ -328,3 +329,30 @@ def test_delete_account(client: TestClient) -> None:
         json={"username": "deleteuser", "password": "Password123!"},
     )
     assert login_res.status_code == 401
+
+
+def test_rate_limiter_blocks_excessive_requests(client: TestClient) -> None:
+    from fastapi_app.core.rate_limit import InMemoryRateLimiter
+    from fastapi_app.main import app
+    from fastapi_app.api.auth import router
+    from fastapi import Depends
+
+    # Create a tiny test limiter that allows max 2 requests
+    test_limiter = InMemoryRateLimiter(requests_limit=2, window_seconds=60)
+    app.dependency_overrides[auth_limiter] = test_limiter
+    try:
+        # First request succeeds/fails normally (not 429)
+        r1 = client.post("/api/auth/login", json={"username": "testuser", "password": "wrong"})
+        assert r1.status_code != 429
+
+        # Second request succeeds/fails normally (not 429)
+        r2 = client.post("/api/auth/login", json={"username": "testuser", "password": "wrong"})
+        assert r2.status_code != 429
+
+        # Third request is rate limited to 429
+        r3 = client.post("/api/auth/login", json={"username": "testuser", "password": "wrong"})
+        assert r3.status_code == 429
+        assert "Too many requests" in r3.json()["detail"]
+    finally:
+        app.dependency_overrides.pop(auth_limiter, None)
+
