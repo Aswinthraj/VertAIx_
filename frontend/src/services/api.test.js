@@ -175,4 +175,77 @@ describe('API Service & JWT Lifecycle', () => {
       expect.objectContaining({ method: 'GET' })
     );
   });
+
+  test('profile, password, reset, and deletion endpoints execute correct requests', async () => {
+    setTokens('access-token', 'refresh-token');
+    const mockFetch = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ success: true, message: 'Operation successful' }),
+      })
+    );
+    global.fetch = mockFetch;
+
+    const {
+      updateProfile,
+      changePassword,
+      forgotPassword,
+      resetPassword,
+      deleteAccount,
+      getHealth,
+    } = require('./api');
+
+    await updateProfile({ username: 'newname', email: 'new@example.com' });
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('/api/auth/me'),
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ username: 'newname', email: 'new@example.com' }),
+      })
+    );
+
+    await changePassword('oldpass123', 'newpass123');
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('/api/auth/change-password'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ current_password: 'oldpass123', new_password: 'newpass123' }),
+      })
+    );
+
+    await forgotPassword('user@example.com');
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('/api/auth/forgot-password'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ email: 'user@example.com' }),
+      })
+    );
+
+    await resetPassword('reset-tok-123', 'newpass456');
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('/api/auth/reset-password'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ token: 'reset-tok-123', new_password: 'newpass456' }),
+      })
+    );
+
+    await deleteAccount('confirm-pass');
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('/api/auth/me'),
+      expect.objectContaining({
+        method: 'DELETE',
+        body: JSON.stringify({ password: 'confirm-pass' }),
+      })
+    );
+    expect(getAccessToken()).toBeNull();
+
+    await getHealth();
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('/api/health'),
+      expect.objectContaining({ method: 'GET' })
+    );
+  });
 });

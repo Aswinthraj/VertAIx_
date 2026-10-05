@@ -3,6 +3,9 @@ from starlette.testclient import TestClient
 
 PROTECTED_ENDPOINTS = [
     ("GET", "/api/auth/me"),
+    ("PATCH", "/api/auth/me"),
+    ("POST", "/api/auth/change-password"),
+    ("DELETE", "/api/auth/me"),
     ("GET", "/api/analytics"),
     ("POST", "/api/analytics/reset"),
     ("GET", "/api/history"),

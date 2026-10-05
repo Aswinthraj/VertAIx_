@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { UserPlus, User, Mail, Lock, ScanEye, AlertOctagon } from 'lucide-react';
+import { UserPlus, User, Mail, Lock, ScanEye, AlertOctagon, Loader2 } from 'lucide-react';
 import './Login.css';
 
 const Register = () => {
+  const [searchParams] = useSearchParams();
+  const nextPath = searchParams.get('next') || '/dashboard';
+
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,18 +20,21 @@ const Register = () => {
     e.preventDefault();
     setError('');
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
       return;
     }
 
     setLoading(true);
-    await register(username, email, password);
+    const result = await register(username.trim(), email.trim(), password, nextPath);
+    if (!result.success) {
+      setError(result.error || 'Registration failed.');
+    }
     setLoading(false);
   };
 
@@ -40,7 +46,7 @@ const Register = () => {
             <ScanEye size={24} />
           </div>
           <h1 className="auth-title">Register Account</h1>
-          <p className="auth-subtitle">Create a VertAIx workspace profile for posture monitoring</p>
+          <p className="auth-subtitle">Create a VertAIx profile for posture monitoring &amp; analytics</p>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
@@ -52,29 +58,29 @@ const Register = () => {
           )}
 
           <div className="form-field-group">
-            <label htmlFor="username">
+            <label htmlFor="reg-username">
               <User size={14} />
-              <span>User / Display Name</span>
+              <span>Username / Display Name</span>
             </label>
             <input
               type="text"
-              id="username"
+              id="reg-username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. Researcher A"
+              placeholder="e.g. jdoe_research"
               required
               autoComplete="username"
             />
           </div>
 
           <div className="form-field-group">
-            <label htmlFor="email">
+            <label htmlFor="reg-email">
               <Mail size={14} />
               <span>Email Address</span>
             </label>
             <input
               type="email"
-              id="email"
+              id="reg-email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="user@domain.com"
@@ -84,29 +90,29 @@ const Register = () => {
           </div>
 
           <div className="form-field-group">
-            <label htmlFor="password">
+            <label htmlFor="reg-password">
               <Lock size={14} />
-              <span>Password</span>
+              <span>Password (min. 8 characters)</span>
             </label>
             <input
               type="password"
-              id="password"
+              id="reg-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min. 6 characters"
+              placeholder="••••••••"
               required
               autoComplete="new-password"
             />
           </div>
 
           <div className="form-field-group">
-            <label htmlFor="confirmPassword">
+            <label htmlFor="reg-confirm-password">
               <Lock size={14} />
               <span>Confirm Password</span>
             </label>
             <input
               type="password"
-              id="confirmPassword"
+              id="reg-confirm-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Re-enter password"
@@ -118,16 +124,25 @@ const Register = () => {
           <button
             type="submit"
             className="auth-submit-btn"
-            disabled={loading}
+            disabled={loading || !username || !email || !password || !confirmPassword}
           >
-            <UserPlus size={16} />
-            <span>{loading ? 'Creating Profile...' : 'Register Profile'}</span>
+            {loading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Creating Profile...</span>
+              </>
+            ) : (
+              <>
+                <UserPlus size={16} />
+                <span>Create Profile</span>
+              </>
+            )}
           </button>
         </form>
 
         <div className="auth-card-footer">
           <p>
-            Already registered? <Link to="/login" className="auth-switch-link">Sign in here</Link>
+            Already registered? <Link to={`/login?next=${encodeURIComponent(nextPath)}`} className="auth-switch-link">Sign in here</Link>
           </p>
         </div>
       </div>

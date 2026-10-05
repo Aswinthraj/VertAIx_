@@ -188,3 +188,143 @@ def test_get_me(client: TestClient, auth_headers: dict[str, str]) -> None:
     data = response.json()
     assert data["username"] == "testuser"
     assert data["email"] == "testuser@example.com"
+
+
+def test_update_profile(client: TestClient, auth_headers: dict[str, str]) -> None:
+    response = client.patch(
+        "/api/auth/me",
+        json={"username": "updatedname", "email": "updated@example.com"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["username"] == "updatedname"
+    assert data["email"] == "updated@example.com"
+
+
+def test_update_profile_duplicate_conflict(client: TestClient, auth_headers: dict[str, str]) -> None:
+    # Register another user
+    client.post(
+        "/api/auth/register",
+        json={
+            "username": "otheruser",
+            "email": "other@example.com",
+            "password": "Password123!",
+        },
+    )
+    # Attempt to take otheruser's username
+    response = client.patch(
+        "/api/auth/me",
+        json={"username": "otheruser"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 409
+
+
+def test_change_password(client: TestClient, auth_headers: dict[str, str]) -> None:
+    # Invalid current password
+    bad_res = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "WrongPassword!", "new_password": "NewPassword123!"},
+        headers=auth_headers,
+    )
+    assert bad_res.status_code == 400
+
+    # Successful change
+    good_res = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "Password123!", "new_password": "NewPassword123!"},
+        headers=auth_headers,
+    )
+    assert good_res.status_code == 200
+    assert good_res.json()["status"] == "success"
+
+    # Login with new password
+    login_res = client.post(
+        "/api/auth/login",
+        json={"username": "testuser", "password": "NewPassword123!"},
+    )
+    assert login_res.status_code == 200
+
+
+def test_forgot_and_reset_password_flow(client: TestClient, db_session) -> None:
+    from sqlalchemy import select
+    from fastapi_app.database.models import PasswordResetToken, User
+
+    # Register user
+    reg_res = client.post(
+        "/api/auth/register",
+        json={
+            "username": "resetflowuser",
+            "email": "resetflow@example.com",
+            "password": "InitialPassword123!",
+        },
+    )
+    assert reg_res.status_code == 201
+
+    # Forgot password request
+    forgot_res = client.post(
+        "/api/auth/forgot-password",
+        json={"email": "resetflow@example.com"},
+    )
+    assert forgot_res.status_code == 200
+    assert "If an account exists" in forgot_res.json()["message"]
+
+    # Non-existent email still returns privacy-preserving 200
+    forgot_nonexistent = client.post(
+        "/api/auth/forgot-password",
+        json={"email": "nobody@example.com"},
+    )
+    assert forgot_nonexistent.status_code == 200
+
+    # Retrieve created token directly for test verification
+    user = db_session.scalar(select(User).where(User.email == "resetflow@example.com"))
+    token_row = db_session.scalar(
+        select(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
+    )
+    assert token_row is not None
+
+    # Invalid token reset attempt
+    invalid_reset = client.post(
+        "/api/auth/reset-password",
+        json={"token": "invalid_raw_token", "new_password": "BrandNewPassword123!"},
+    )
+    assert invalid_reset.status_code == 400
+
+
+def test_delete_account(client: TestClient) -> None:
+    reg_res = client.post(
+        "/api/auth/register",
+        json={
+            "username": "deleteuser",
+            "email": "delete@example.com",
+            "password": "Password123!",
+        },
+    )
+    token = reg_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Wrong password fails
+    wrong_res = client.request(
+        "DELETE",
+        "/api/auth/me",
+        json={"password": "WrongPassword!"},
+        headers=headers,
+    )
+    assert wrong_res.status_code == 400
+
+    # Correct password deletes account
+    del_res = client.request(
+        "DELETE",
+        "/api/auth/me",
+        json={"password": "Password123!"},
+        headers=headers,
+    )
+    assert del_res.status_code == 200
+
+    # Login fails now
+    login_res = client.post(
+        "/api/auth/login",
+        json={"username": "deleteuser", "password": "Password123!"},
+    )
+    assert login_res.status_code == 401

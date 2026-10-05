@@ -185,6 +185,108 @@ export const getCurrentUser = async () => {
   return response.json();
 };
 
+export const updateProfile = async ({ username, email }) => {
+  const payload = {};
+  if (username !== undefined) payload.username = username;
+  if (email !== undefined) payload.email = email;
+
+  const response = await authFetch('/api/auth/me', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    let errorMsg = 'Failed to update profile';
+    if (typeof data.detail === 'string') errorMsg = data.detail;
+    else if (Array.isArray(data.detail)) errorMsg = data.detail.map((d) => d.msg).join(', ');
+    throw new Error(errorMsg);
+  }
+
+  // Update cached user in storage
+  const storedUser = getStoredUser() || {};
+  setTokens(getAccessToken(), getRefreshToken(), { ...storedUser, ...data });
+  return data;
+};
+
+export const changePassword = async (currentPassword, newPassword) => {
+  const response = await authFetch('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    let errorMsg = 'Failed to change password';
+    if (typeof data.detail === 'string') errorMsg = data.detail;
+    else if (Array.isArray(data.detail)) errorMsg = data.detail.map((d) => d.msg).join(', ');
+    throw new Error(errorMsg);
+  }
+  return data;
+};
+
+export const forgotPassword = async (email) => {
+  const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    let errorMsg = 'Failed to process password reset request';
+    if (typeof data.detail === 'string') errorMsg = data.detail;
+    else if (Array.isArray(data.detail)) errorMsg = data.detail.map((d) => d.msg).join(', ');
+    throw new Error(errorMsg);
+  }
+  return data;
+};
+
+export const resetPassword = async (token, newPassword) => {
+  const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    let errorMsg = 'Password reset failed';
+    if (typeof data.detail === 'string') errorMsg = data.detail;
+    else if (Array.isArray(data.detail)) errorMsg = data.detail.map((d) => d.msg).join(', ');
+    throw new Error(errorMsg);
+  }
+  return data;
+};
+
+export const deleteAccount = async (password) => {
+  const response = await authFetch('/api/auth/me', {
+    method: 'DELETE',
+    body: JSON.stringify({ password }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    let errorMsg = 'Failed to delete account';
+    if (typeof data.detail === 'string') errorMsg = data.detail;
+    else if (Array.isArray(data.detail)) errorMsg = data.detail.map((d) => d.msg).join(', ');
+    throw new Error(errorMsg);
+  }
+  clearTokens();
+  return data;
+};
+
+export const getHealth = async () => {
+  const response = await fetch(`${API_BASE_URL}/api/health`, { method: 'GET' });
+  if (!response.ok) {
+    throw new Error(`Health check failed: ${response.status}`);
+  }
+  return response.json();
+};
+
 // ==========================================
 // TELEMETRY & POSTURE API
 // ==========================================

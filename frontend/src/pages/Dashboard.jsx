@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
 import {
   getPostureStatus,
   getLLMAdvice,
@@ -36,9 +35,6 @@ import {
 import './Dashboard.css';
 
 const Dashboard = () => {
-  const { user } = useAuth();
-  const userId = user?.uid || 'default_user';
-
   const [postureData, setPostureData] = useState({
     status: 'Connecting...',
     pcs: 0,
@@ -65,7 +61,7 @@ const Dashboard = () => {
 
   // Initialize session and poll data
   useEffect(() => {
-    startSession(userId).catch(err => {
+    startSession().catch(err => {
       console.error('Failed to start session:', err);
     });
 
@@ -90,12 +86,12 @@ const Dashboard = () => {
       if (typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
       }
-      endSession(userId).catch(err => {
+      endSession().catch(err => {
         console.error('Failed to end session:', err);
       });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, []);
 
   // Guidance stream animation
   useEffect(() => {
@@ -141,7 +137,7 @@ const Dashboard = () => {
 
   const fetchPostureData = async () => {
     try {
-      const data = await getPostureStatus(userId);
+      const data = await getPostureStatus();
 
       // Status change toast notifications
       if (previousStatusRef.current && previousStatusRef.current !== data.status) {
@@ -199,7 +195,7 @@ const Dashboard = () => {
 
   const fetchGuidanceAdvice = async () => {
     try {
-      const data = await getLLMAdvice(userId);
+      const data = await getLLMAdvice();
       if (data.status === 'success' && data.advice) {
         setGuidanceAdvice(data.advice);
       }
@@ -210,7 +206,7 @@ const Dashboard = () => {
 
   const fetchAnalyticsData = async () => {
     try {
-      const data = await getAnalytics(userId);
+      const data = await getAnalytics();
       setAnalyticsData(data);
     } catch (err) {
       console.debug('Analytics fetch skipped:', err);

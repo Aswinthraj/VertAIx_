@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { getAnalytics, resetAnalytics } from '../services/api';
 import { toast } from 'react-toastify';
 import {
@@ -17,9 +16,6 @@ import {
 import './Analytics.css';
 
 const Analytics = () => {
-  const { user } = useAuth();
-  const userId = user?.uid || 'default_user';
-
   const [stats, setStats] = useState({
     good_posture_count: 0,
     warning_count: 0,
@@ -41,12 +37,11 @@ const Analytics = () => {
     fetchAnalytics();
     const interval = setInterval(fetchAnalytics, 2000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, []);
 
   const fetchAnalytics = async () => {
     try {
-      const data = await getAnalytics(userId);
+      const data = await getAnalytics();
       setStats({
         good_posture_count: data.good_posture_count || 0,
         warning_count: data.warning_count || 0,
@@ -69,10 +64,10 @@ const Analytics = () => {
   };
 
   const handleResetAnalytics = async () => {
-    if (window.confirm('Are you sure you want to reset all session analytics for this user?')) {
+    if (window.confirm('Are you sure you want to reset all session analytics?')) {
       setResetting(true);
       try {
-        await resetAnalytics(userId);
+        await resetAnalytics();
         toast.success('Session analytics reset successfully.', {
           position: 'top-right',
           autoClose: 2500,

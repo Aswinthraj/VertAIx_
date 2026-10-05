@@ -7,12 +7,14 @@ import {
   History as HistoryIcon,
   Settings as SettingsIcon,
   Info,
+  HelpCircle,
   LogOut,
   LogIn,
   UserPlus,
   Menu,
   X,
-  ScanEye
+  ScanEye,
+  Home
 } from 'lucide-react';
 import './Navbar.css';
 
@@ -33,7 +35,7 @@ const Navbar = () => {
     <header className="navbar">
       <div className="navbar-container">
         {/* Brand Logo */}
-        <Link to="/" className="navbar-logo" onClick={closeMobileMenu}>
+        <Link to={isAuthenticated ? "/dashboard" : "/"} className="navbar-logo" onClick={closeMobileMenu}>
           <div className="logo-badge">
             <ScanEye className="logo-icon-svg" size={20} />
           </div>
@@ -56,36 +58,67 @@ const Navbar = () => {
         {/* Desktop Navigation Links */}
         <nav className={`nav-menu-wrapper ${mobileMenuOpen ? 'open' : ''}`}>
           <ul className="nav-menu">
-            <li className="nav-item">
-              <Link to="/" className={`nav-link ${isActive('/')}`} onClick={closeMobileMenu}>
-                <LayoutDashboard size={17} className="nav-icon" />
-                <span>Dashboard</span>
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link to="/analytics" className={`nav-link ${isActive('/analytics')}`} onClick={closeMobileMenu}>
-                <BarChart3 size={17} className="nav-icon" />
-                <span>Analytics</span>
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link to="/history" className={`nav-link ${isActive('/history')}`} onClick={closeMobileMenu}>
-                <HistoryIcon size={17} className="nav-icon" />
-                <span>History</span>
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link to="/settings" className={`nav-link ${isActive('/settings')}`} onClick={closeMobileMenu}>
-                <SettingsIcon size={17} className="nav-icon" />
-                <span>Settings</span>
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link to="/about" className={`nav-link ${isActive('/about')}`} onClick={closeMobileMenu}>
-                <Info size={17} className="nav-icon" />
-                <span>About</span>
-              </Link>
-            </li>
+            {isAuthenticated ? (
+              <>
+                <li className="nav-item">
+                  <Link to="/dashboard" className={`nav-link ${isActive('/dashboard')}`} onClick={closeMobileMenu}>
+                    <LayoutDashboard size={17} className="nav-icon" />
+                    <span>Dashboard</span>
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link to="/analytics" className={`nav-link ${isActive('/analytics')}`} onClick={closeMobileMenu}>
+                    <BarChart3 size={17} className="nav-icon" />
+                    <span>Analytics</span>
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link to="/history" className={`nav-link ${isActive('/history')}`} onClick={closeMobileMenu}>
+                    <HistoryIcon size={17} className="nav-icon" />
+                    <span>History</span>
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link to="/settings" className={`nav-link ${isActive('/settings')}`} onClick={closeMobileMenu}>
+                    <SettingsIcon size={17} className="nav-icon" />
+                    <span>Settings</span>
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link to="/about" className={`nav-link ${isActive('/about')}`} onClick={closeMobileMenu}>
+                    <Info size={17} className="nav-icon" />
+                    <span>About</span>
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link to="/help" className={`nav-link ${isActive('/help')}`} onClick={closeMobileMenu}>
+                    <HelpCircle size={17} className="nav-icon" />
+                    <span>Help</span>
+                  </Link>
+                </li>
+              </>
+            ) : (
+              <>
+                <li className="nav-item">
+                  <Link to="/" className={`nav-link ${isActive('/')}`} onClick={closeMobileMenu}>
+                    <Home size={17} className="nav-icon" />
+                    <span>Home</span>
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link to="/about" className={`nav-link ${isActive('/about')}`} onClick={closeMobileMenu}>
+                    <Info size={17} className="nav-icon" />
+                    <span>About</span>
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link to="/help" className={`nav-link ${isActive('/help')}`} onClick={closeMobileMenu}>
+                    <HelpCircle size={17} className="nav-icon" />
+                    <span>Help Guide</span>
+                  </Link>
+                </li>
+              </>
+            )}
           </ul>
 
           {/* Auth Actions */}
@@ -93,7 +126,7 @@ const Navbar = () => {
             {isAuthenticated ? (
               <div className="user-profile-strip">
                 <span className="user-label" title={user?.email || user?.displayName}>
-                  {user?.displayName || user?.email?.split('@')[0] || 'Researcher'}
+                  {user?.displayName || user?.email?.split('@')[0] || 'User'}
                 </span>
                 <button onClick={() => { closeMobileMenu(); logout(); }} className="logout-btn" title="Sign out">
                   <LogOut size={15} />
@@ -104,11 +137,11 @@ const Navbar = () => {
               <div className="auth-btn-group">
                 <Link to="/login" className="auth-link login" onClick={closeMobileMenu}>
                   <LogIn size={15} />
-                  <span>Login</span>
+                  <span>Sign In</span>
                 </Link>
                 <Link to="/register" className="auth-link register" onClick={closeMobileMenu}>
                   <UserPlus size={15} />
-                  <span>Register</span>
+                  <span>Get Started</span>
                 </Link>
               </div>
             )}

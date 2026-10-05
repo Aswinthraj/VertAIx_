@@ -20,7 +20,18 @@ def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
 
 
+import secrets
+
+
 def hash_refresh_token(token: str) -> str:
+    return sha256(token.encode("utf-8")).hexdigest()
+
+
+def generate_reset_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_reset_token(token: str) -> str:
     return sha256(token.encode("utf-8")).hexdigest()
 
 

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { getHistory, clearHistory, saveUserDetailsCSV } from '../services/api';
 import { toast } from 'react-toastify';
 import {
@@ -17,9 +16,6 @@ import {
 import './History.css';
 
 const History = () => {
-  const { user } = useAuth();
-  const userId = user?.uid || 'default_user';
-
   const [historyData, setHistoryData] = useState([]);
   const [stats, setStats] = useState({
     total_records: 0,
@@ -37,12 +33,11 @@ const History = () => {
     fetchHistory();
     const interval = setInterval(fetchHistory, 2000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, []);
 
   const fetchHistory = async () => {
     try {
-      const data = await getHistory(userId, 100);
+      const data = await getHistory(100);
       setHistoryData(data.history || []);
       setStats(data.stats || {
         total_records: 0,
@@ -90,10 +85,10 @@ const History = () => {
   };
 
   const handleClearHistory = async () => {
-    if (window.confirm('Are you sure you want to clear all posture telemetry records for this user?')) {
+    if (window.confirm('Are you sure you want to clear all posture telemetry records?')) {
       setClearing(true);
       try {
-        await clearHistory(userId);
+        await clearHistory();
         toast.success('Telemetry history cleared.', {
           position: 'top-right',
           autoClose: 2500,
@@ -139,7 +134,7 @@ const History = () => {
   const handleSaveCSV = async () => {
     setSavingCsv(true);
     try {
-      const result = await saveUserDetailsCSV(userId);
+      const result = await saveUserDetailsCSV();
       toast.success(`Server report generated: ${result.file} (${result.records} records)`, {
         position: 'top-right',
         autoClose: 3500,

@@ -1,14 +1,15 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 
-// Mock react-router-dom for Jest environment compatibility with React Router v7
+// Mock react-router-dom for Jest environment compatibility
 jest.mock('react-router-dom', () => ({
   BrowserRouter: ({ children }) => <div data-testid="router">{children}</div>,
   Routes: ({ children }) => <div data-testid="routes">{children}</div>,
   Route: ({ element }) => <div data-testid="route">{element}</div>,
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
-  useLocation: () => ({ pathname: '/' }),
+  useLocation: () => ({ pathname: '/', search: '' }),
   useNavigate: () => jest.fn(),
+  useSearchParams: () => [new URLSearchParams(''), jest.fn()],
   Navigate: ({ to }) => <div data-testid="navigate" data-to={to}>Redirecting to {to}</div>,
 }));
 

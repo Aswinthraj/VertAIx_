@@ -1,24 +1,37 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh' 
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '80vh',
+        gap: '1rem',
+        color: '#00D4B8'
       }}>
-        <div>Loading...</div>
+        <Loader2 className="animate-spin" size={36} style={{ animation: 'spin 1s linear infinite' }} />
+        <span style={{ color: '#64748b', fontSize: '0.875rem', letterSpacing: '0.05em' }}>
+          VERIFYING SESSION...
+        </span>
       </div>
     );
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  if (!isAuthenticated) {
+    const nextPath = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${nextPath}`} replace />;
+  }
+
+  return children;
 };
 
 export default ProtectedRoute;

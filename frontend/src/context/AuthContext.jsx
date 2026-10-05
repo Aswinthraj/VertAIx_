@@ -62,7 +62,23 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  const login = async (usernameOrEmail, password) => {
+  const refreshUserProfile = async () => {
+    try {
+      const userData = await getCurrentUser();
+      const normalizedUser = {
+        ...userData,
+        uid: String(userData.id),
+        displayName: userData.username,
+      };
+      setUser(normalizedUser);
+      return normalizedUser;
+    } catch (err) {
+      console.warn('[VertAIx] Failed to refresh profile:', err);
+      return null;
+    }
+  };
+
+  const login = async (usernameOrEmail, password, redirectPath = '/dashboard') => {
     try {
       const response = await loginUser(usernameOrEmail, password);
       const normalizedUser = {
@@ -72,7 +88,7 @@ export const AuthProvider = ({ children }) => {
       };
       setUser(normalizedUser);
       toast.success('Signed in successfully!');
-      navigate('/');
+      navigate(redirectPath);
       return { success: true, user: normalizedUser };
     } catch (error) {
       const errorMessage = error.message || 'Login failed';
@@ -81,7 +97,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (username, email, password) => {
+  const register = async (username, email, password, redirectPath = '/dashboard') => {
     try {
       const response = await registerUser(username, email, password);
       const normalizedUser = {
@@ -91,7 +107,7 @@ export const AuthProvider = ({ children }) => {
       };
       setUser(normalizedUser);
       toast.success('Account created successfully!');
-      navigate('/');
+      navigate(redirectPath);
       return { success: true, user: normalizedUser };
     } catch (error) {
       const errorMessage = error.message || 'Registration failed';
@@ -120,6 +136,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
+        refreshUserProfile,
         loading,
         isAuthenticated: !!user,
       }}

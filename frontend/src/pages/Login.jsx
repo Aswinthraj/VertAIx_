@@ -1,19 +1,28 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, Mail, Lock, ScanEye } from 'lucide-react';
+import { LogIn, Mail, Lock, ScanEye, AlertOctagon, Loader2 } from 'lucide-react';
 import './Login.css';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [searchParams] = useSearchParams();
+  const nextPath = searchParams.get('next') || '/dashboard';
+
+  const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    await login(email, password);
+
+    const result = await login(usernameOrEmail.trim(), password, nextPath);
+    if (!result.success) {
+      setError(result.error || 'Invalid credentials or connection error');
+    }
     setLoading(false);
   };
 
@@ -25,20 +34,27 @@ const Login = () => {
             <ScanEye size={24} />
           </div>
           <h1 className="auth-title">VertAIx Console</h1>
-          <p className="auth-subtitle">Sign in to access real-time posture telemetry & analytics</p>
+          <p className="auth-subtitle">Sign in to access real-time posture telemetry &amp; analytics</p>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
+          {error && (
+            <div className="auth-error-banner">
+              <AlertOctagon size={16} />
+              <span>{error}</span>
+            </div>
+          )}
+
           <div className="form-field-group">
-            <label htmlFor="email">
+            <label htmlFor="login-identity">
               <Mail size={14} />
               <span>Email or Username</span>
             </label>
             <input
               type="text"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="login-identity"
+              value={usernameOrEmail}
+              onChange={(e) => setUsernameOrEmail(e.target.value)}
               placeholder="username or user@domain.com"
               required
               autoComplete="username"
@@ -46,13 +62,18 @@ const Login = () => {
           </div>
 
           <div className="form-field-group">
-            <label htmlFor="password">
-              <Lock size={14} />
-              <span>Password</span>
-            </label>
+            <div className="label-with-action">
+              <label htmlFor="login-password">
+                <Lock size={14} />
+                <span>Password</span>
+              </label>
+              <Link to="/forgot-password" className="forgot-password-link">
+                Forgot Password?
+              </Link>
+            </div>
             <input
               type="password"
-              id="password"
+              id="login-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -64,16 +85,25 @@ const Login = () => {
           <button
             type="submit"
             className="auth-submit-btn"
-            disabled={loading}
+            disabled={loading || !usernameOrEmail || !password}
           >
-            <LogIn size={16} />
-            <span>{loading ? 'Authenticating...' : 'Sign In'}</span>
+            {loading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Authenticating...</span>
+              </>
+            ) : (
+              <>
+                <LogIn size={16} />
+                <span>Sign In</span>
+              </>
+            )}
           </button>
         </form>
 
         <div className="auth-card-footer">
           <p>
-            Need an account? <Link to="/register" className="auth-switch-link">Register researcher profile</Link>
+            Need an account? <Link to={`/register?next=${encodeURIComponent(nextPath)}`} className="auth-switch-link">Create workspace profile</Link>
           </p>
         </div>
       </div>
