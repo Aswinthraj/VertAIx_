@@ -67,12 +67,75 @@ class CameraWorker:
         # Detection mode: 'rule' or 'ml'
         self.mode: str = "rule"
 
+        # Active user ID for real-time tracking
+        self.active_user_id: str = "default_user"
+
         # Per-user runtime state trackers
         self.sedentary_trackers: dict[str, SedentaryTracker] = {}
         self.user_profiles: dict[str, UserProfile] = {}
         self.primary_user_trackers: dict[str, PrimaryUserTracker] = {}
         self.recommendations_cache: dict[str, list[str]] = {}
         self.last_recommendation_update: dict[str, float] = {}
+
+    def set_active_user(self, user_id: str) -> None:
+        """Sets the active user ID for continuous telemetry updates."""
+        with self._lock:
+            self.active_user_id = str(user_id)
+            self._ensure_user_state(self.active_user_id)
+
+    def _persist_telemetry(self, user_id: str, result: dict[str, Any]) -> None:
+        """Persists periodic telemetry snapshots into PostureHistory and updates PostureAnalytics."""
+        if not user_id or user_id == "default_user":
+            return
+
+        try:
+            from datetime import datetime
+            from fastapi_app.database.models import PostureAnalytics, PostureHistory
+            from fastapi_app.database.session import SessionLocal
+
+            with SessionLocal() as db:
+                # 1. Insert PostureHistory record
+                history_record = PostureHistory(
+                    user_id=str(user_id),
+                    status=result.get("status", "No Data"),
+                    pcs=float(result.get("pcs", 0.0)),
+                    alert=bool(result.get("alert", False)),
+                    sedentary_time=int(result.get("sedentary_time", 0)),
+                    timestamp=datetime.utcnow(),
+                )
+                db.add(history_record)
+
+                # 2. Update or create PostureAnalytics record
+                analytics = db.query(PostureAnalytics).filter_by(user_id=str(user_id)).first()
+                if analytics is None:
+                    analytics = PostureAnalytics(
+                        user_id=str(user_id),
+                        good_posture_count=0,
+                        warning_count=0,
+                        bad_posture_count=0,
+                        total_checks=0,
+                        total_pcs=0.0,
+                        total_sedentary_time=0,
+                        session_start=datetime.utcnow(),
+                    )
+                    db.add(analytics)
+
+                analytics.total_checks = (analytics.total_checks or 0) + 1
+                analytics.total_pcs = (analytics.total_pcs or 0.0) + float(result.get("pcs", 0.0))
+                analytics.total_sedentary_time = int(result.get("sedentary_time", 0))
+
+                status_val = result.get("status", "")
+                if status_val == "Good Posture":
+                    analytics.good_posture_count = (analytics.good_posture_count or 0) + 1
+                elif status_val == "Posture Warning":
+                    analytics.warning_count = (analytics.warning_count or 0) + 1
+                elif status_val == "Bad Posture":
+                    analytics.bad_posture_count = (analytics.bad_posture_count or 0) + 1
+
+                analytics.last_updated = datetime.utcnow()
+                db.commit()
+        except Exception as exc:
+            logger.debug("Telemetry DB logging skipped: %s", exc)
 
     def _load_ml_model(self) -> bool:
         if self.model_path.exists():
@@ -121,6 +184,7 @@ class CameraWorker:
     def reset_user_session(self, user_id: str) -> None:
         """Resets the sedentary tracker and user lock for a new session."""
         with self._lock:
+            self.active_user_id = str(user_id)
             if user_id in self.sedentary_trackers:
                 self.sedentary_trackers[user_id].end_session()
             self.sedentary_trackers[user_id] = SedentaryTracker()
@@ -279,19 +343,39 @@ class CameraWorker:
     def _camera_loop(
         self, camera_index: int, show_window: bool, user_id: str
     ) -> None:
-        cap = cv2.VideoCapture(camera_index)
+        # Try DirectShow first on Windows, fallback to default backend
+        cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
         if not cap.isOpened():
-            logger.error("Webcam (index %d) not accessible", camera_index)
+            cap = cv2.VideoCapture(camera_index)
+
+        if not cap.isOpened():
+            logger.warning("Webcam (index %d) not accessible. Camera worker standing by.", camera_index)
             self._is_running = False
             return
+
+        consecutive_fails = 0
+        last_db_log_time = 0.0
 
         try:
             while not self._stop_event.is_set():
                 ret, frame = cap.read()
-                if not ret:
-                    break
+                if not ret or frame is None:
+                    consecutive_fails += 1
+                    if consecutive_fails > 60:
+                        logger.warning("Camera stream dropped 60 consecutive frames. Stopping capture loop.")
+                        break
+                    time.sleep(0.05)
+                    continue
 
-                result = self.process_frame(frame, user_id=user_id)
+                consecutive_fails = 0
+                active_user = self.active_user_id or user_id or "default_user"
+                result = self.process_frame(frame, user_id=active_user)
+
+                # Periodic DB update (every ~1.5s) for live analytics & history
+                now = time.time()
+                if now - last_db_log_time >= 1.5:
+                    last_db_log_time = now
+                    self._persist_telemetry(active_user, result)
 
                 if show_window:
                     cv2.putText(
@@ -309,6 +393,9 @@ class CameraWorker:
                     key = cv2.waitKey(1) & 0xFF
                     if key == ord("q"):
                         break
+
+                # Frame rate throttling (~30 FPS)
+                time.sleep(0.03)
         finally:
             cap.release()
             if show_window:
@@ -327,6 +414,7 @@ class CameraWorker:
         Prevents starting multiple concurrent capture threads.
         """
         with self._lock:
+            self.active_user_id = str(user_id)
             if self._is_running and self._thread and self._thread.is_alive():
                 return True
 
@@ -361,6 +449,7 @@ class CameraWorker:
             "mode": self.get_detection_mode(),
             "ml_model_loaded": self.ml_model_loaded,
             "camera_index": self.camera_index,
+            "active_user_id": self.active_user_id,
         }
 
 

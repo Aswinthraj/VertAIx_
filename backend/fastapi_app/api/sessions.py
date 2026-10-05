@@ -12,7 +12,10 @@ router = APIRouter(tags=["sessions"])
 def start_session(current_user: User = Depends(get_current_user)) -> SessionResponse:
     from fastapi_app.core.camera_worker import get_camera_worker
 
-    get_camera_worker().reset_user_session(str(current_user.id))
+    worker = get_camera_worker()
+    worker.set_active_user(str(current_user.id))
+    worker.reset_user_session(str(current_user.id))
+    worker.start(user_id=str(current_user.id))
     try:
         import camera
 

@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,6 +10,17 @@ from fastapi_app.api.posture import router as posture_router
 from fastapi_app.api.recommendations import router as recommendations_router
 from fastapi_app.api.sessions import router as sessions_router
 from fastapi_app.config import get_settings
+from fastapi_app.core.camera_worker import get_camera_worker
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Start background camera worker for active telemetry
+    worker = get_camera_worker()
+    worker.start(user_id="default_user")
+    yield
+    # Shutdown: Gracefully stop background capture thread
+    worker.stop()
 
 
 settings = get_settings()
@@ -15,6 +28,7 @@ app = FastAPI(
     title="VertAIx API",
     version="1.0.0",
     description="FastAPI migration foundation for VertAIx.",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
