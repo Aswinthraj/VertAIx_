@@ -7,6 +7,8 @@ logger = logging.getLogger("vertaix.frame_decoder")
 
 # Maximum frame size allowed in bytes (5 MB limit to prevent memory exhaustion / DoS)
 MAX_FRAME_BYTES = 5 * 1024 * 1024
+MAX_FRAME_WIDTH = 1920
+MAX_FRAME_HEIGHT = 1080
 
 
 def decode_image_bytes(image_bytes: bytes) -> np.ndarray:
@@ -33,6 +35,11 @@ def decode_image_bytes(image_bytes: bytes) -> np.ndarray:
 
     if frame.shape[0] < 10 or frame.shape[1] < 10:
         raise ValueError(f"Image dimensions ({frame.shape[1]}x{frame.shape[0]}) are too small")
+    if frame.shape[1] > MAX_FRAME_WIDTH or frame.shape[0] > MAX_FRAME_HEIGHT:
+        raise ValueError(
+            f"Image dimensions ({frame.shape[1]}x{frame.shape[0]}) exceed "
+            f"the maximum allowed {MAX_FRAME_WIDTH}x{MAX_FRAME_HEIGHT}"
+        )
 
     return frame
 
@@ -52,7 +59,7 @@ def decode_base64_image(image_str: str) -> np.ndarray:
         encoded = image_str
 
     try:
-        raw_bytes = base64.b64decode(encoded)
+        raw_bytes = base64.b64decode(encoded, validate=True)
     except Exception as exc:
         raise ValueError(f"Invalid base64 encoding: {exc}") from exc
 

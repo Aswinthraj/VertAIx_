@@ -352,13 +352,14 @@ export const processFrame = async (blobOrBase64) => {
 };
 
 /**
- * Generates the authenticated WebSocket URL for live posture telemetry streaming.
+ * Generates the clean WebSocket URL for live posture telemetry streaming.
+ * Authentication is performed in-band after connection to prevent URL token leakage.
  */
 export const getPostureWebSocketUrl = () => {
-  const token = getAccessToken();
   const wsBase = API_BASE_URL.replace(/^http/, 'ws');
-  return `${wsBase}/api/posture/ws${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  return `${wsBase}/api/posture/ws`;
 };
+
 
 
 // ==========================================

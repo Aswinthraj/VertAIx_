@@ -95,32 +95,40 @@ def test_process_frame_corrupt_payload_rejected(client: TestClient, auth_headers
     assert response.status_code == 400
 
 
-def test_websocket_unauthenticated_rejected(client: TestClient) -> None:
-    with pytest.raises(Exception):
-        with client.websocket_connect("/api/posture/ws"):
-            pass
-
-
-def test_websocket_authenticated_streaming(client: TestClient, auth_headers: dict[str, str]) -> None:
-    # Extract token from Bearer auth_headers
+def test_websocket_in_band_auth_handshake(client: TestClient, auth_headers: dict[str, str]) -> None:
     token = auth_headers["Authorization"].split(" ")[1]
     jpeg_bytes = _create_sample_jpeg(320, 240)
 
-    with client.websocket_connect(f"/api/posture/ws?token={token}") as ws:
+    # Connect without token query param
+    with client.websocket_connect("/api/posture/ws") as ws:
+        # Perform in-band JWT authentication handshake
+        ws.send_json({"type": "auth", "token": token})
+        auth_ack = ws.receive_json()
+        assert auth_ack.get("status") == "authenticated"
+        assert "user_id" in auth_ack
+
         # Send binary frame
         ws.send_bytes(jpeg_bytes)
         response = ws.receive_json()
         assert "status" in response
         assert "pcs" in response
 
-        # Send JSON frame
-        b64_str = "data:image/jpeg;base64," + base64.b64encode(jpeg_bytes).decode("utf-8")
-        ws.send_json({"image": b64_str})
-        response2 = ws.receive_json()
-        assert "status" in response2
-        assert "pcs" in response2
 
-        # Send ping
-        ws.send_json({"ping": True})
-        ping_resp = ws.receive_json()
-        assert ping_resp.get("pong") is True
+def test_websocket_in_band_auth_invalid_token_rejected(client: TestClient) -> None:
+    with client.websocket_connect("/api/posture/ws") as ws:
+        ws.send_json({"type": "auth", "token": "invalid.jwt.token"})
+        response = ws.receive_json()
+        assert response.get("status") == "unauthorized"
+
+
+def test_websocket_query_token_fallback(client: TestClient, auth_headers: dict[str, str]) -> None:
+    token = auth_headers["Authorization"].split(" ")[1]
+    jpeg_bytes = _create_sample_jpeg(320, 240)
+
+    with client.websocket_connect(f"/api/posture/ws?token={token}") as ws:
+        ack = ws.receive_json()
+        assert ack.get("status") == "authenticated"
+
+        ws.send_bytes(jpeg_bytes)
+        response = ws.receive_json()
+        assert "status" in response

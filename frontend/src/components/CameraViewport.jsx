@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Camera, CameraOff, ShieldAlert, CheckCircle2, Zap } from 'lucide-react';
-import { getPostureWebSocketUrl, processFrame } from '../services/api';
+import { getAccessToken, getPostureWebSocketUrl, processFrame } from '../services/api';
 import './CameraViewport.css';
 
 const CameraViewport = ({
@@ -22,6 +22,8 @@ const CameraViewport = ({
   const wsRef = useRef(null);
   const sendLoopTimerRef = useRef(null);
   const isSendingHttpRef = useRef(false);
+  const awaitingWsResponseRef = useRef(false);
+  const wsAuthenticatedRef = useRef(false);
   const lastSendTimeRef = useRef(0);
   const frameCountRef = useRef(0);
   const lastFpsCalcTimeRef = useRef(Date.now());
@@ -35,7 +37,7 @@ const CameraViewport = ({
 
     if (wsRef.current) {
       try {
-        wsRef.current.close();
+        wsRef.current.close(1000, 'Normal Closure');
       } catch (e) {}
       wsRef.current = null;
     }
@@ -50,15 +52,18 @@ const CameraViewport = ({
     }
 
     isSendingHttpRef.current = false;
+    awaitingWsResponseRef.current = false;
+    wsAuthenticatedRef.current = false;
+
     setCameraActive(false);
     setTransportMode('idle');
     setFps(0);
     setLatencyMs(0);
   }, []);
 
-  // Frame processing via HTTP fallback
+  // Frame processing via HTTP fallback with 1-in-flight backpressure
   const sendFrameHttp = useCallback(async (canvas) => {
-    if (isSendingHttpRef.current) return;
+    if (isSendingHttpRef.current) return; // Strict backpressure: skip if prior request in-flight
     isSendingHttpRef.current = true;
 
     try {
@@ -87,13 +92,12 @@ const CameraViewport = ({
     }
   }, [onPoseUpdate]);
 
-  // Start continuous frame extraction & transport loop (~10-12 FPS)
+  // Start continuous frame extraction & transport loop (~10-12 FPS) with backpressure
   const startFrameLoop = useCallback(() => {
     if (sendLoopTimerRef.current) {
       clearInterval(sendLoopTimerRef.current);
     }
 
-    // Prepare offscreen canvas for resolution throttling (320x240 for optimal speed/accuracy)
     if (!canvasRef.current) {
       canvasRef.current = document.createElement('canvas');
       canvasRef.current.width = 320;
@@ -105,42 +109,82 @@ const CameraViewport = ({
       const canvas = canvasRef.current;
       if (!video || !canvas || video.readyState < 2) return;
 
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const ws = wsRef.current;
 
-      // 1. Try WebSocket transport if connected
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      // 1. WebSocket Transport with in-flight backpressure and buffer check
+      if (ws && ws.readyState === WebSocket.OPEN && wsAuthenticatedRef.current) {
+        // Backpressure check: Skip frame if prior frame hasn't responded or socket buffer has unsent bytes
+        if (awaitingWsResponseRef.current || ws.bufferedAmount > 0) {
+          return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         lastSendTimeRef.current = Date.now();
+        awaitingWsResponseRef.current = true;
+
         canvas.toBlob(
           (blob) => {
-            if (blob && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-              wsRef.current.send(blob);
+            if (blob && ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(blob);
+            } else {
+              awaitingWsResponseRef.current = false;
             }
           },
           'image/jpeg',
           0.65
         );
-      } else {
-        // 2. Fallback to HTTP POST
+      } else if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+        // 2. HTTP Fallback
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         sendFrameHttp(canvas);
       }
     }, 90); // ~11 FPS
   }, [sendFrameHttp]);
 
-  // Connect WebSocket
+  // Connect WebSocket with secure In-Band JWT Handshake
   const connectWebSocket = useCallback(() => {
     try {
       const wsUrl = getPostureWebSocketUrl();
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
+      wsAuthenticatedRef.current = false;
+      awaitingWsResponseRef.current = false;
 
       ws.onopen = () => {
-        setTransportMode('ws');
-        setCameraError(null);
+        // Perform in-band JWT handshake immediately over encrypted WSS
+        const token = getAccessToken();
+        if (token) {
+          ws.send(JSON.stringify({ type: 'auth', token }));
+        } else {
+          setCameraError('Authentication required. Please sign in again.');
+          setTransportMode('http');
+        }
       };
 
       ws.onmessage = (event) => {
         try {
+          const result = JSON.parse(event.data);
+
+          // Handle authentication confirmation
+          if (result.status === 'authenticated') {
+            wsAuthenticatedRef.current = true;
+            setTransportMode('ws');
+            setCameraError(null);
+            return;
+          }
+
+          // Handle authentication rejection
+          if (result.status === 'unauthorized') {
+            setCameraError('Session expired. Please log in again.');
+            setTransportMode('http');
+            return;
+          }
+
+          // Release backpressure lock on receipt of posture response
+          awaitingWsResponseRef.current = false;
+
           const roundTrip = Date.now() - lastSendTimeRef.current;
           if (roundTrip > 0 && roundTrip < 2000) {
             setLatencyMs(roundTrip);
@@ -155,27 +199,33 @@ const CameraViewport = ({
             lastFpsCalcTimeRef.current = now;
           }
 
-          const result = JSON.parse(event.data);
           if (onPoseUpdate && result && !result.error) {
             onPoseUpdate(result);
           }
         } catch (parseErr) {
+          awaitingWsResponseRef.current = false;
           console.debug('[CameraViewport] Telemetry parse err:', parseErr);
         }
       };
 
       ws.onerror = (err) => {
         console.warn('[CameraViewport] WebSocket error, switching to HTTP transport fallback:', err);
+        wsAuthenticatedRef.current = false;
+        awaitingWsResponseRef.current = false;
         setTransportMode('http');
       };
 
       ws.onclose = () => {
+        wsAuthenticatedRef.current = false;
+        awaitingWsResponseRef.current = false;
         if (cameraActive) {
           setTransportMode('http');
         }
       };
     } catch (e) {
       console.warn('[CameraViewport] WebSocket initialization failed, using HTTP fallback:', e);
+      wsAuthenticatedRef.current = false;
+      awaitingWsResponseRef.current = false;
       setTransportMode('http');
     }
   }, [cameraActive, onPoseUpdate]);

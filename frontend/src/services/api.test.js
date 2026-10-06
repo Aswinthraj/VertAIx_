@@ -283,11 +283,12 @@ describe('API Service & JWT Lifecycle', () => {
     );
   });
 
-  test('getPostureWebSocketUrl formats ws protocol and includes token param', () => {
+  test('getPostureWebSocketUrl formats ws protocol without exposing token in query string', () => {
     setTokens('sample-jwt-token', 'refresh-token');
     const wsUrl = getPostureWebSocketUrl();
     expect(wsUrl).toContain('ws://');
-    expect(wsUrl).toContain('/api/posture/ws?token=sample-jwt-token');
+    expect(wsUrl).toContain('/api/posture/ws');
+    expect(wsUrl).not.toContain('token=');
   });
 });
 

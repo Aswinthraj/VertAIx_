@@ -3,8 +3,13 @@ from starlette.testclient import TestClient
 from posture_runtime import update_posture
 
 
-def test_get_posture_default_state(client: TestClient) -> None:
+def test_get_posture_unauthenticated_rejected(client: TestClient) -> None:
     response = client.get("/api/posture")
+    assert response.status_code == 401
+
+
+def test_get_posture_authenticated_default_state(client: TestClient, auth_headers: dict[str, str]) -> None:
+    response = client.get("/api/posture", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert "status" in data
@@ -15,16 +20,17 @@ def test_get_posture_default_state(client: TestClient) -> None:
     assert isinstance(data["recommendations"], list)
 
 
-def test_get_posture_returns_runtime_state(client: TestClient) -> None:
+def test_get_posture_returns_runtime_state(client: TestClient, auth_headers: dict[str, str]) -> None:
+    # Authenticated user id in test fixtures is "1"
     update_posture(
-        user_id="default_user",
+        user_id="1",
         status="Good Posture",
         pcs=88.5,
         alert=False,
         sedentary_time=120,
         recommendations=["Keep back straight"],
     )
-    response = client.get("/api/posture")
+    response = client.get("/api/posture", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "Good Posture"
