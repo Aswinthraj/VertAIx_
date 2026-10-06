@@ -11,8 +11,13 @@ class PostureResponse(BaseModel):
     shoulder_angle: float = 0.0
     spine_angle: float = 0.0
     landmarks_detected: bool = False
-    last_updated: str | None
+    last_updated: str | None = None
 
 
 class DetectionModeRequest(BaseModel):
     mode: str
+
+
+class FrameProcessRequest(BaseModel):
+    image: str = Field(..., description="Base64 encoded image string or data URL")
+

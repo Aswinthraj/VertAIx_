@@ -18,6 +18,8 @@ import {
   setDetectionMode,
   getDetectionMode,
   getLLMAdvice,
+  processFrame,
+  getPostureWebSocketUrl,
 } from './api';
 
 describe('API Service & JWT Lifecycle', () => {
@@ -248,4 +250,44 @@ describe('API Service & JWT Lifecycle', () => {
       expect.objectContaining({ method: 'GET' })
     );
   });
+
+  test('processFrame sends frame payload and returns parsed telemetry', async () => {
+    setTokens('token-xyz', 'refresh-xyz');
+    const mockResult = {
+      status: 'Good Posture',
+      pcs: 92.0,
+      alert: false,
+      neck_angle: 5.2,
+      shoulder_angle: 1.1,
+      spine_angle: 3.8,
+      landmarks_detected: true,
+    };
+    const mockFetch = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(mockResult),
+      })
+    );
+    global.fetch = mockFetch;
+
+    const result = await processFrame('data:image/jpeg;base64,samplebase64frame');
+    expect(result.status).toBe('Good Posture');
+    expect(result.pcs).toBe(92.0);
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/posture/process-frame'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ image: 'data:image/jpeg;base64,samplebase64frame' }),
+      })
+    );
+  });
+
+  test('getPostureWebSocketUrl formats ws protocol and includes token param', () => {
+    setTokens('sample-jwt-token', 'refresh-token');
+    const wsUrl = getPostureWebSocketUrl();
+    expect(wsUrl).toContain('ws://');
+    expect(wsUrl).toContain('/api/posture/ws?token=sample-jwt-token');
+  });
 });
+

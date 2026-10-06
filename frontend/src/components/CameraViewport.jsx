@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Camera, CameraOff, ShieldAlert, CheckCircle2, Zap } from 'lucide-react';
+import { getPostureWebSocketUrl, processFrame } from '../services/api';
 import './CameraViewport.css';
 
 const CameraViewport = ({
@@ -11,89 +12,235 @@ const CameraViewport = ({
 }) => {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
-  const [fps, setFps] = useState(29.8);
+  const [transportMode, setTransportMode] = useState('idle'); // 'ws' | 'http' | 'idle'
+  const [fps, setFps] = useState(0);
+  const [latencyMs, setLatencyMs] = useState(0);
+
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const animFrameRef = useRef(null);
+  const canvasRef = useRef(null);
+  const wsRef = useRef(null);
+  const sendLoopTimerRef = useRef(null);
+  const isSendingHttpRef = useRef(false);
+  const lastSendTimeRef = useRef(0);
+  const frameCountRef = useRef(0);
+  const lastFpsCalcTimeRef = useRef(Date.now());
 
-  // Toggle local webcam preview
+  // Stop all camera and network transport
+  const stopWebcam = useCallback(() => {
+    if (sendLoopTimerRef.current) {
+      clearInterval(sendLoopTimerRef.current);
+      sendLoopTimerRef.current = null;
+    }
+
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch (e) {}
+      wsRef.current = null;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    isSendingHttpRef.current = false;
+    setCameraActive(false);
+    setTransportMode('idle');
+    setFps(0);
+    setLatencyMs(0);
+  }, []);
+
+  // Frame processing via HTTP fallback
+  const sendFrameHttp = useCallback(async (canvas) => {
+    if (isSendingHttpRef.current) return;
+    isSendingHttpRef.current = true;
+
+    try {
+      const sendTime = Date.now();
+      const b64 = canvas.toDataURL('image/jpeg', 0.65);
+      const result = await processFrame(b64);
+      const roundTrip = Date.now() - sendTime;
+      setLatencyMs(roundTrip);
+
+      frameCountRef.current += 1;
+      const now = Date.now();
+      if (now - lastFpsCalcTimeRef.current >= 1000) {
+        const measuredFps = (frameCountRef.current * 1000) / (now - lastFpsCalcTimeRef.current);
+        setFps(Number(measuredFps.toFixed(1)));
+        frameCountRef.current = 0;
+        lastFpsCalcTimeRef.current = now;
+      }
+
+      if (onPoseUpdate && result) {
+        onPoseUpdate(result);
+      }
+    } catch (err) {
+      console.warn('[CameraViewport] HTTP frame transport error:', err);
+    } finally {
+      isSendingHttpRef.current = false;
+    }
+  }, [onPoseUpdate]);
+
+  // Start continuous frame extraction & transport loop (~10-12 FPS)
+  const startFrameLoop = useCallback(() => {
+    if (sendLoopTimerRef.current) {
+      clearInterval(sendLoopTimerRef.current);
+    }
+
+    // Prepare offscreen canvas for resolution throttling (320x240 for optimal speed/accuracy)
+    if (!canvasRef.current) {
+      canvasRef.current = document.createElement('canvas');
+      canvasRef.current.width = 320;
+      canvasRef.current.height = 240;
+    }
+
+    sendLoopTimerRef.current = setInterval(() => {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas || video.readyState < 2) return;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // 1. Try WebSocket transport if connected
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        lastSendTimeRef.current = Date.now();
+        canvas.toBlob(
+          (blob) => {
+            if (blob && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              wsRef.current.send(blob);
+            }
+          },
+          'image/jpeg',
+          0.65
+        );
+      } else {
+        // 2. Fallback to HTTP POST
+        sendFrameHttp(canvas);
+      }
+    }, 90); // ~11 FPS
+  }, [sendFrameHttp]);
+
+  // Connect WebSocket
+  const connectWebSocket = useCallback(() => {
+    try {
+      const wsUrl = getPostureWebSocketUrl();
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setTransportMode('ws');
+        setCameraError(null);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const roundTrip = Date.now() - lastSendTimeRef.current;
+          if (roundTrip > 0 && roundTrip < 2000) {
+            setLatencyMs(roundTrip);
+          }
+
+          frameCountRef.current += 1;
+          const now = Date.now();
+          if (now - lastFpsCalcTimeRef.current >= 1000) {
+            const measuredFps = (frameCountRef.current * 1000) / (now - lastFpsCalcTimeRef.current);
+            setFps(Number(measuredFps.toFixed(1)));
+            frameCountRef.current = 0;
+            lastFpsCalcTimeRef.current = now;
+          }
+
+          const result = JSON.parse(event.data);
+          if (onPoseUpdate && result && !result.error) {
+            onPoseUpdate(result);
+          }
+        } catch (parseErr) {
+          console.debug('[CameraViewport] Telemetry parse err:', parseErr);
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.warn('[CameraViewport] WebSocket error, switching to HTTP transport fallback:', err);
+        setTransportMode('http');
+      };
+
+      ws.onclose = () => {
+        if (cameraActive) {
+          setTransportMode('http');
+        }
+      };
+    } catch (e) {
+      console.warn('[CameraViewport] WebSocket initialization failed, using HTTP fallback:', e);
+      setTransportMode('http');
+    }
+  }, [cameraActive, onPoseUpdate]);
+
+  // Toggle local webcam preview and frame streaming
   const toggleCamera = async () => {
     if (cameraActive) {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
-      setCameraActive(false);
-      setCameraError(null);
+      stopWebcam();
     } else {
       try {
         setCameraError(null);
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 15, max: 30 },
+            facingMode: 'user',
+          },
+          audio: false,
         });
+
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
         setCameraActive(true);
 
-        // Broadcast active camera telemetry stream
-        if (onPoseUpdate) {
-          onPoseUpdate({
-            neck_angle: 7.8,
-            shoulder_angle: 1.6,
-            spine_angle: 4.2,
-            landmarks_detected: true,
-            status: 'Good Posture',
-            pcs: 89.0
-          });
-        }
+        // Connect frame transport
+        connectWebSocket();
+        startFrameLoop();
       } catch (err) {
-        console.warn('Webcam access error:', err);
-        setCameraError('Webcam permission needed. Please click "Allow" when prompted by your browser.');
+        console.warn('Webcam acquisition error:', err);
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setCameraError('Webcam permission denied. Please grant camera permissions in your browser address bar.');
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          setCameraError('No webcam found on this device.');
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          setCameraError('Webcam is currently in use by another application.');
+        } else {
+          setCameraError(`Camera error: ${err.message || 'Unable to access webcam'}`);
+        }
         setCameraActive(false);
       }
     }
   };
 
-  // Clean up media tracks on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
+      stopWebcam();
     };
-  }, []);
-
-  // Subtle live telemetry FPS & slight angle motion when active
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setFps(Number((29.4 + Math.random() * 0.9).toFixed(1)));
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [stopWebcam]);
 
   return (
     <div className="camera-viewport-card">
       <div className="viewport-header">
         <div className="viewport-title-group">
-          <span className="viewport-kicker">Visual Telemetry Viewport</span>
+          <span className="viewport-kicker">Browser Optical Telemetry</span>
           <h3 className="viewport-heading">Real-Time Pose Tracker</h3>
         </div>
         <div className="viewport-actions">
           <button
             className={`camera-toggle-btn ${cameraActive ? 'active' : ''}`}
             onClick={toggleCamera}
-            title={cameraActive ? 'Disable webcam preview' : 'Enable live webcam preview'}
+            title={cameraActive ? 'Disable webcam stream' : 'Enable live browser webcam stream'}
           >
             {cameraActive ? <CameraOff size={15} /> : <Camera size={15} />}
             <span>{cameraActive ? 'Camera Live' : 'Enable Camera'}</span>
@@ -123,9 +270,9 @@ const CameraViewport = ({
                 <div className="target-head-silhouette" />
               </div>
               <p className="hologram-text">
-                {landmarksDetected ? 'Spatial Primary User Locked' : 'MediaPipe Vision Pipeline Active'}
+                {landmarksDetected ? 'Spatial Primary User Locked' : 'MediaPipe Vision Pipeline Ready'}
               </p>
-              
+
               <button className="hologram-start-btn" onClick={toggleCamera}>
                 <Camera size={16} />
                 <span>Start Live Webcam Preview</span>
@@ -139,14 +286,18 @@ const CameraViewport = ({
           {/* Top Left Status */}
           <div className="hud-badge top-left">
             <span className="hud-pulse-light" />
-            <span>{cameraActive ? 'OPTICAL FEED ACTIVE' : 'TELEMETRY STREAM'}</span>
+            <span>
+              {cameraActive
+                ? `OPTICAL FEED ACTIVE (${transportMode.toUpperCase()})`
+                : 'TELEMETRY STANDBY'}
+            </span>
           </div>
 
           {/* Top Right Live Stats */}
           <div className="hud-badge top-right">
-            <span>{fps} FPS</span>
+            <span>{fps > 0 ? `${fps} FPS` : cameraActive ? 'STREAMING...' : '0 FPS'}</span>
             <span className="hud-divider">|</span>
-            <span>18ms LATENCY</span>
+            <span>{latencyMs > 0 ? `${latencyMs}ms RTT` : 'ONLINE'}</span>
           </div>
 
           {/* Reticle Target Alignment Guides */}
@@ -161,9 +312,23 @@ const CameraViewport = ({
           </div>
 
           {/* Live Classification Tag Banner on video */}
-          <div className={`hud-state-banner ${status === 'Good Posture' ? 'good' : status === 'Posture Warning' ? 'warning' : 'bad'}`}>
-            {status === 'Good Posture' ? <CheckCircle2 size={14} /> : <ShieldAlert size={14} />}
-            <span>{status.toUpperCase()} (PCS {pcs.toFixed(0)}%)</span>
+          <div
+            className={`hud-state-banner ${
+              status === 'Good Posture'
+                ? 'good'
+                : status === 'Posture Warning'
+                ? 'warning'
+                : 'bad'
+            }`}
+          >
+            {status === 'Good Posture' ? (
+              <CheckCircle2 size={14} />
+            ) : (
+              <ShieldAlert size={14} />
+            )}
+            <span>
+              {status.toUpperCase()} (PCS {pcs.toFixed(0)}%)
+            </span>
           </div>
         </div>
       </div>
