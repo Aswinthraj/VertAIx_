@@ -15,12 +15,12 @@ from fastapi_app.core.camera_worker import get_camera_worker
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Start background camera worker for active telemetry
-    worker = get_camera_worker()
-    worker.start(user_id="default_user")
+    # Server startup: Initialize camera worker (loads ML models / dependencies)
+    # Physical camera is NOT started on startup for browser webcam architecture.
+    get_camera_worker()
     yield
-    # Shutdown: Gracefully stop background capture thread
-    worker.stop()
+    # Server shutdown: Gracefully stop any capture threads if running
+    get_camera_worker().stop()
 
 
 settings = get_settings()

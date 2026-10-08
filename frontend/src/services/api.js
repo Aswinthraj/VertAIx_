@@ -320,6 +320,48 @@ export const setDetectionMode = async (mode) => {
   return data;
 };
 
+/**
+ * Process a single webcam frame via FastAPI HTTP frame processor endpoint.
+ * Supports Blob (multipart upload) or base64 data string.
+ */
+export const processFrame = async (blobOrBase64) => {
+  let response;
+  if (blobOrBase64 instanceof Blob) {
+    const formData = new FormData();
+    formData.append('file', blobOrBase64, 'frame.jpg');
+    const token = getAccessToken();
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    response = await fetch(`${API_BASE_URL}/api/posture/process-frame`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+  } else {
+    response = await authFetch('/api/posture/process-frame', {
+      method: 'POST',
+      body: JSON.stringify({ image: blobOrBase64 }),
+    });
+  }
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || `Frame processing failed: ${response.status}`);
+  }
+  return data;
+};
+
+/**
+ * Generates the clean WebSocket URL for live posture telemetry streaming.
+ * Authentication is performed in-band after connection to prevent URL token leakage.
+ */
+export const getPostureWebSocketUrl = () => {
+  const wsBase = API_BASE_URL.replace(/^http/, 'ws');
+  return `${wsBase}/api/posture/ws`;
+};
+
+
+
 // ==========================================
 // ANALYTICS API
 // ==========================================

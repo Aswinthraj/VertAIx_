@@ -29,3 +29,18 @@ def get_current_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
+
+
+def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User | None:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        return None
+    try:
+        payload = decode_token(credentials.credentials, ACCESS_TOKEN_TYPE)
+        user_id = int(payload["sub"])
+        return db.get(User, user_id)
+    except Exception:
+        return None
+

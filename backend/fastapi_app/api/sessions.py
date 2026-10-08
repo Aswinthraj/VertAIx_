@@ -15,7 +15,6 @@ def start_session(current_user: User = Depends(get_current_user)) -> SessionResp
     worker = get_camera_worker()
     worker.set_active_user(str(current_user.id))
     worker.ensure_user_session(str(current_user.id))
-    worker.start(user_id=str(current_user.id))
     try:
         import camera
 

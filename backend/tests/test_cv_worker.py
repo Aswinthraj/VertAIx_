@@ -6,14 +6,14 @@ from posture_runtime import get_posture
 
 
 def test_camera_worker_initialization() -> None:
-    worker = CameraWorker()
+    worker = CameraWorker(default_mode="rule")
     assert worker.mode == "rule"
     assert worker.ml_model_loaded is True
     assert worker.is_running is False
 
 
 def test_camera_worker_detection_mode_switch() -> None:
-    worker = CameraWorker()
+    worker = CameraWorker(default_mode="rule")
     assert worker.get_detection_mode() == "rule"
 
     assert worker.set_detection_mode("ml") is True
@@ -24,6 +24,28 @@ def test_camera_worker_detection_mode_switch() -> None:
 
     assert worker.set_detection_mode("unsupported_mode") is False
     assert worker.get_detection_mode() == "rule"
+
+
+def test_camera_worker_multi_user_isolation() -> None:
+    worker = CameraWorker()
+    user_a = "user_alpha"
+    user_b = "user_beta"
+
+    worker.set_detection_mode("ml", user_id=user_a)
+    worker.set_detection_mode("rule", user_id=user_b)
+
+    assert worker.get_detection_mode(user_a) == "ml"
+    assert worker.get_detection_mode(user_b) == "rule"
+
+    # User A and User B have separate analyzers and trackers
+    blank_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    worker.process_frame(blank_frame, user_id=user_a)
+    worker.process_frame(blank_frame, user_id=user_b)
+
+    assert user_a in worker.analyzers
+    assert user_b in worker.analyzers
+    assert worker.analyzers[user_a] is not worker.analyzers[user_b]
+    assert worker.sedentary_trackers[user_a] is not worker.sedentary_trackers[user_b]
 
 
 def test_camera_worker_session_lifecycle() -> None:

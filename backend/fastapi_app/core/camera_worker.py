@@ -32,9 +32,14 @@ class CameraWorker:
     Reuses the existing MediaPipe, VertAIxPSF posture analyzer, primary-user tracker,
     sedentary tracker, and Random Forest classifier without changing the core algorithms.
     Thread-safe and decoupled from external blocking calls.
+    Supports multi-user isolation for browser-based posture sessions.
     """
 
-    def __init__(self, model_path: Path | str | None = None) -> None:
+    def __init__(
+        self,
+        model_path: Path | str | None = None,
+        default_mode: str | None = None,
+    ) -> None:
         self._lock = threading.RLock()
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -42,19 +47,12 @@ class CameraWorker:
         self.camera_index = 0
         self.alert_frame_threshold = 90  # ~3 seconds at 30 FPS
 
-        # Initialize MediaPipe Pose
+        # Initialize MediaPipe Pose Reference
         self.mp_pose = mp.solutions.pose
-        self.pose = self.mp_pose.Pose(
-            static_image_mode=False,
-            model_complexity=1,
-            smooth_landmarks=True,
-            enable_segmentation=False,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
-        )
+        self.pose_instances: dict[str, Any] = {}
 
-        # Initialize Posture Analyzer
-        self.analyzer = VertAIxPSF(window_size=30)
+        # Per-user Posture Analyzers
+        self.analyzers: dict[str, VertAIxPSF] = {}
 
         # ML Model Configuration
         if model_path is None:
@@ -65,7 +63,13 @@ class CameraWorker:
         self._load_ml_model()
 
         # Detection mode: default to 'ml' when available, else 'rule'
-        self.mode: str = "ml" if self.ml_model_loaded else "rule"
+        if default_mode is not None:
+            self.mode = default_mode
+        else:
+            self.mode = "ml" if self.ml_model_loaded else "rule"
+
+        # Per-user detection mode overrides
+        self.user_modes: dict[str, str] = {}
 
         # Active user ID for real-time tracking
         self.active_user_id: str = "default_user"
@@ -76,6 +80,36 @@ class CameraWorker:
         self.primary_user_trackers: dict[str, PrimaryUserTracker] = {}
         self.recommendations_cache: dict[str, list[str]] = {}
         self.last_recommendation_update: dict[str, float] = {}
+        self.last_telemetry_db_time: dict[str, float] = {}
+
+    @property
+    def analyzer(self) -> VertAIxPSF:
+        """Backward-compatible access to default user analyzer."""
+        return self._get_user_analyzer("default_user")
+
+    @property
+    def pose(self) -> Any:
+        """Backward-compatible access to default user pose estimator."""
+        return self._get_user_pose("default_user")
+
+    def _get_user_pose(self, user_id: str) -> Any:
+        uid = str(user_id)
+        if uid not in self.pose_instances:
+            self.pose_instances[uid] = self.mp_pose.Pose(
+                static_image_mode=False,
+                model_complexity=1,
+                smooth_landmarks=True,
+                enable_segmentation=False,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5,
+            )
+        return self.pose_instances[uid]
+
+    def _get_user_analyzer(self, user_id: str) -> VertAIxPSF:
+        uid = str(user_id)
+        if uid not in self.analyzers:
+            self.analyzers[uid] = VertAIxPSF(window_size=30)
+        return self.analyzers[uid]
 
     def set_active_user(self, user_id: str) -> None:
         """Sets the active user ID for continuous telemetry updates."""
@@ -153,14 +187,19 @@ class CameraWorker:
         return False
 
     def _ensure_user_state(self, user_id: str) -> None:
-        if user_id not in self.sedentary_trackers:
-            self.sedentary_trackers[user_id] = SedentaryTracker()
-        if user_id not in self.user_profiles:
-            self.user_profiles[user_id] = UserProfile()
-        if user_id not in self.primary_user_trackers:
-            self.primary_user_trackers[user_id] = PrimaryUserTracker()
+        uid = str(user_id)
+        if uid not in self.sedentary_trackers:
+            self.sedentary_trackers[uid] = SedentaryTracker()
+        if uid not in self.user_profiles:
+            self.user_profiles[uid] = UserProfile()
+        if uid not in self.primary_user_trackers:
+            self.primary_user_trackers[uid] = PrimaryUserTracker()
+        if uid not in self.analyzers:
+            self.analyzers[uid] = VertAIxPSF(window_size=30)
+        if uid not in self.user_modes:
+            self.user_modes[uid] = self.mode
 
-    def set_detection_mode(self, mode: str) -> bool:
+    def set_detection_mode(self, mode: str, user_id: str | None = None) -> bool:
         """
         Switch detection mode at runtime ('rule' or 'ml').
         Returns True if successful, False if 'ml' requested but model unavailable.
@@ -170,38 +209,51 @@ class CameraWorker:
                 if not self.ml_model_loaded or self.ml_model is None:
                     return False
                 self.mode = "ml"
+                if user_id:
+                    self.user_modes[str(user_id)] = "ml"
                 return True
             elif mode == "rule":
                 self.mode = "rule"
+                if user_id:
+                    self.user_modes[str(user_id)] = "rule"
                 return True
             return False
 
-    def get_detection_mode(self) -> str:
+    def get_detection_mode(self, user_id: str | None = None) -> str:
         """Returns current detection mode ('rule' or 'ml')."""
         with self._lock:
+            if user_id and str(user_id) in self.user_modes:
+                return self.user_modes[str(user_id)]
             return self.mode
 
     def ensure_user_session(self, user_id: str) -> None:
         """Ensures the user trackers and active state are running without wiping ongoing sedentary duration."""
         with self._lock:
-            self.active_user_id = str(user_id)
-            self._ensure_user_state(self.active_user_id)
+            uid = str(user_id)
+            self.active_user_id = uid
+            self._ensure_user_state(uid)
 
     def reset_user_session(self, user_id: str) -> None:
-        """Resets the sedentary tracker and user lock for a brand new session."""
+        """Resets the sedentary tracker, primary user tracker, and analyzer for a brand new session."""
         with self._lock:
-            self.active_user_id = str(user_id)
-            if user_id in self.sedentary_trackers:
-                self.sedentary_trackers[user_id].end_session()
-            self.sedentary_trackers[user_id] = SedentaryTracker()
-            if user_id in self.primary_user_trackers:
-                self.primary_user_trackers[user_id].reset()
+            uid = str(user_id)
+            self.active_user_id = uid
+            if uid in self.sedentary_trackers:
+                self.sedentary_trackers[uid].end_session()
+            self.sedentary_trackers[uid] = SedentaryTracker()
+            if uid in self.primary_user_trackers:
+                self.primary_user_trackers[uid].reset()
+            self.analyzers[uid] = VertAIxPSF(window_size=30)
+            self.recommendations_cache.pop(uid, None)
+            self.last_recommendation_update.pop(uid, None)
+            self.last_telemetry_db_time.pop(uid, None)
 
     def end_user_session(self, user_id: str) -> int:
         """Ends a user session and returns total session sedentary time in seconds."""
         with self._lock:
-            if user_id in self.sedentary_trackers:
-                return self.sedentary_trackers[user_id].end_session()
+            uid = str(user_id)
+            if uid in self.sedentary_trackers:
+                return self.sedentary_trackers[uid].end_session()
             return 0
 
     def process_frame(
@@ -212,11 +264,16 @@ class CameraWorker:
         Updates posture_runtime state thread-safely.
         """
         with self._lock:
-            self._ensure_user_state(user_id)
+            uid = str(user_id)
+            self._ensure_user_state(uid)
             height, width = frame.shape[:2]
 
+            user_pose = self._get_user_pose(uid)
+            user_analyzer = self._get_user_analyzer(uid)
+            user_mode = self.get_detection_mode(uid)
+
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = self.pose.process(rgb_frame)
+            results = user_pose.process(rgb_frame)
 
             status = "No Person"
             pcs = 0.0
@@ -233,9 +290,9 @@ class CameraWorker:
                 )
 
                 # Primary user lock
-                if not self.primary_user_trackers[user_id].update_and_validate(landmarks):
+                if not self.primary_user_trackers[uid].update_and_validate(landmarks):
                     # Person in frame is not the primary tracked user
-                    current_posture = get_posture(user_id)
+                    current_posture = get_posture(uid)
                     return {
                         "status": current_posture.get("status", "No Person"),
                         "pcs": current_posture.get("pcs", 0.0),
@@ -246,6 +303,7 @@ class CameraWorker:
                         "shoulder_angle": 0.0,
                         "spine_angle": 0.0,
                         "landmarks_detected": False,
+                        "last_updated": time.strftime("%Y-%m-%d %H:%M:%S"),
                     }
 
                 _nose = landmarks.get("NOSE")
@@ -281,11 +339,11 @@ class CameraWorker:
 
                     landmarks_detected = True
 
-                # Run VertAIx-PSF algorithm
-                avg_pcs, bad_frames = self.analyzer.update(landmarks)
+                # Run VertAIx-PSF algorithm for this user
+                avg_pcs, bad_frames = user_analyzer.update(landmarks)
 
                 # Posture classification
-                if self.mode == "ml" and self.ml_model is not None and landmarks_detected:
+                if user_mode == "ml" and self.ml_model is not None and landmarks_detected:
                     input_df = pd.DataFrame(
                         [[current_neck_angle, current_shoulder_angle, current_spine_angle]],
                         columns=["neck_angle", "shoulder_angle", "spine_angle"],
@@ -300,27 +358,27 @@ class CameraWorker:
                 if bad_frames > self.alert_frame_threshold:
                     alert = True
 
-                sedentary_time = self.sedentary_trackers[user_id].update(
+                sedentary_time = self.sedentary_trackers[uid].update(
                     person_detected=True
                 )
-                self.user_profiles[user_id].update(status)
+                self.user_profiles[uid].update(status)
 
                 current_time = time.time()
                 if (
-                    user_id not in self.last_recommendation_update
-                    or current_time - self.last_recommendation_update[user_id] >= 30.0
+                    uid not in self.last_recommendation_update
+                    or current_time - self.last_recommendation_update[uid] >= 30.0
                 ):
                     recommendations = get_recommendations(
                         pcs=pcs,
                         sedentary_seconds=sedentary_time,
-                        profile=self.user_profiles[user_id],
+                        profile=self.user_profiles[uid],
                     )
-                    self.recommendations_cache[user_id] = recommendations
-                    self.last_recommendation_update[user_id] = current_time
+                    self.recommendations_cache[uid] = recommendations
+                    self.last_recommendation_update[uid] = current_time
                 else:
-                    recommendations = self.recommendations_cache.get(user_id, [])
+                    recommendations = self.recommendations_cache.get(uid, [])
             else:
-                sedentary_time = self.sedentary_trackers[user_id].update(
+                sedentary_time = self.sedentary_trackers[uid].update(
                     person_detected=False
                 )
                 recommendations = []
@@ -336,7 +394,7 @@ class CameraWorker:
                 ui_spine_angle = 0.0
 
             update_posture(
-                user_id=user_id,
+                user_id=uid,
                 status=status,
                 pcs=pcs,
                 alert=alert,
@@ -348,7 +406,7 @@ class CameraWorker:
                 landmarks_detected=landmarks_detected,
             )
 
-            return {
+            result = {
                 "status": status,
                 "pcs": round(float(pcs), 2),
                 "alert": alert,
@@ -358,11 +416,23 @@ class CameraWorker:
                 "shoulder_angle": ui_shoulder_angle,
                 "spine_angle": ui_spine_angle,
                 "landmarks_detected": landmarks_detected,
+                "last_updated": time.strftime("%Y-%m-%d %H:%M:%S"),
             }
+
+            # Periodic telemetry DB persistence (~1.5s interval per user)
+            if uid != "default_user":
+                now = time.time()
+                last_time = self.last_telemetry_db_time.get(uid, 0.0)
+                if now - last_time >= 1.5:
+                    self.last_telemetry_db_time[uid] = now
+                    self._persist_telemetry(uid, result)
+
+            return result
 
     def _camera_loop(
         self, camera_index: int, show_window: bool, user_id: str
     ) -> None:
+        """Optional local development webcam capture loop."""
         # Try DirectShow first on Windows, fallback to default backend
         cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
         if not cap.isOpened():
@@ -391,7 +461,6 @@ class CameraWorker:
                 active_user = self.active_user_id or user_id or "default_user"
                 result = self.process_frame(frame, user_id=active_user)
 
-                # Periodic DB update (every ~1.5s) for live analytics & history
                 now = time.time()
                 if now - last_db_log_time >= 1.5:
                     last_db_log_time = now
@@ -430,7 +499,7 @@ class CameraWorker:
         user_id: str = "default_user",
     ) -> bool:
         """
-        Starts the background camera worker thread.
+        Starts the background local camera worker thread (local dev only).
         Prevents starting multiple concurrent capture threads.
         """
         with self._lock:
