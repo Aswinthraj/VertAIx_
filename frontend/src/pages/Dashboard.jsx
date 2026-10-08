@@ -40,9 +40,11 @@ import CameraViewport from '../components/CameraViewport';
 import AngleTelemetryGauges from '../components/AngleTelemetryGauges';
 import BreathingModal from '../components/BreathingModal';
 import TelemetryStream from '../components/TelemetryStream';
+import { useAuth } from '../context/AuthContext';
 import './Dashboard.css';
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const [postureData, setPostureData] = useState({
     status: 'Good Posture',
     pcs: 88.0,
@@ -73,6 +75,27 @@ const Dashboard = () => {
   const alertShownRef = useRef(false);
   const typingIntervalRef = useRef(null);
   const isSimulatedRef = useRef(false);
+  const realtimeFeedbackRef = useRef(null);
+  const postureCapturedRef = useRef(false);
+  const postureNavigationRef = useRef(false);
+
+  useEffect(() => {
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, []);
+
+  useEffect(() => {
+    const shouldNavigate = postureData.status === 'Good Posture' || postureData.status === 'Bad Posture';
+
+    if (postureCapturedRef.current && shouldNavigate) {
+      if (!postureNavigationRef.current) {
+        postureNavigationRef.current = true;
+        realtimeFeedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else {
+      postureNavigationRef.current = false;
+    }
+  }, [postureData.status]);
 
   // Helper to add event log item
   const addTelemetryEvent = (type, message, pcs) => {
@@ -222,6 +245,7 @@ const Dashboard = () => {
       }
 
       previousStatusRef.current = data.status;
+      postureCapturedRef.current = true;
       setPostureData(prev => ({
         ...prev,
         ...data,
@@ -232,12 +256,6 @@ const Dashboard = () => {
       setIsConnected(true);
       setError(null);
     } catch (err) {
-      if (isConnected) {
-        toast.error('Telemetry disconnected: backend service unavailable.', {
-          position: 'bottom-left',
-          autoClose: 4000,
-        });
-      }
       setIsConnected(false);
       setError('Unable to retrieve posture telemetry. Ensure backend camera service is running.');
     }
@@ -287,6 +305,7 @@ const Dashboard = () => {
   // Interactive Live State Simulator
   const handleSimulateState = (stateKey) => {
     isSimulatedRef.current = true;
+    postureCapturedRef.current = true;
     let simulatedData = {};
     if (stateKey === 'good') {
       simulatedData = {
@@ -381,6 +400,9 @@ const Dashboard = () => {
   };
 
   const currentMeta = getStatusMeta(postureData.status);
+  const currentHour = new Date().getHours();
+  const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening';
+  const displayName = user?.displayName || user?.username || user?.email?.split('@')[0] || 'there';
 
   // Chart datasets
   const pieData = analyticsData
@@ -431,6 +453,7 @@ const Dashboard = () => {
         {/* Header Bar */}
         <header className="dashboard-header-panel">
           <div className="header-info">
+            <p className="dashboard-greeting">{greeting}, <span style={{ textTransform: "uppercase" }}>{displayName}</span></p>
             <div className="header-title-row">
               <h1 className="header-title">Posture Monitoring Console</h1>
               <span className="cv-tag">MediaPipe CV Telemetry</span>
@@ -500,7 +523,7 @@ const Dashboard = () => {
           </div>
 
           {/* Technical Detection Mode Selector */}
-          <div className="detection-mode-toggle-group">
+            <div className="detection-mode-toggle-group">
             <span className="toggle-group-label">
               <Sliders size={14} />
               <span>Classification Engine:</span>
@@ -554,6 +577,45 @@ const Dashboard = () => {
             status={postureData.status}
             alert={postureData.alert}
           />
+        </section>
+
+        {/* Posture Correction Guidance Panel (Powered by Groq LLM) */}
+        <section className="guidance-section-panel" ref={realtimeFeedbackRef}>
+          <div className="guidance-card">
+            <div className="guidance-header">
+              <div className="guidance-title-group">
+                <Sparkles size={18} className="guidance-icon" />
+                <h3 className="guidance-title">Adaptive Ergonomic Advice</h3>
+                <span className="groq-model-tag">Groq Cloud AI</span>
+              </div>
+              {isTyping && <span className="guidance-live-badge">Streaming Live...</span>}
+            </div>
+
+            {displayedGuidance ? (
+              <div className="guidance-body">
+                <p className="guidance-text">{displayedGuidance}</p>
+              </div>
+            ) : (
+              <div className="guidance-fallback">
+                <p>Analyzing pose landmarks to generate tailored ergonomic alignment recommendations...</p>
+              </div>
+            )}
+
+            {/* Quick Action Items from Backend */}
+            {postureData.recommendations && postureData.recommendations.length > 0 && (
+              <div className="recommendations-container">
+                <h4 className="recommendations-heading">Identified Correction Steps</h4>
+                <div className="recommendations-chips-grid">
+                  {postureData.recommendations.map((rec, idx) => (
+                    <div key={idx} className="recommendation-chip">
+                      <ShieldCheck size={16} className="chip-icon" />
+                      <span>{rec}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Real-Time Angle Gauges Row */}
@@ -795,44 +857,7 @@ const Dashboard = () => {
           )}
         </section>
 
-        {/* Posture Correction Guidance Panel (Powered by Groq LLM) */}
-        <section className="guidance-section-panel">
-          <div className="guidance-card">
-            <div className="guidance-header">
-              <div className="guidance-title-group">
-                <Sparkles size={18} className="guidance-icon" />
-                <h3 className="guidance-title">Adaptive Ergonomic Advice</h3>
-                <span className="groq-model-tag">Groq Cloud AI</span>
-              </div>
-              {isTyping && <span className="guidance-live-badge">Streaming Live...</span>}
-            </div>
-
-            {displayedGuidance ? (
-              <div className="guidance-body">
-                <p className="guidance-text">{displayedGuidance}</p>
-              </div>
-            ) : (
-              <div className="guidance-fallback">
-                <p>Analyzing pose landmarks to generate tailored ergonomic alignment recommendations...</p>
-              </div>
-            )}
-
-            {/* Quick Action Items from Backend */}
-            {postureData.recommendations && postureData.recommendations.length > 0 && (
-              <div className="recommendations-container">
-                <h4 className="recommendations-heading">Identified Correction Steps</h4>
-                <div className="recommendations-chips-grid">
-                  {postureData.recommendations.map((rec, idx) => (
-                    <div key={idx} className="recommendation-chip">
-                      <ShieldCheck size={16} className="chip-icon" />
-                      <span>{rec}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
+        
 
         {/* Semantic Status Guide Reference */}
         <section className="status-reference-panel">

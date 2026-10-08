@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { UserPlus, User, Mail, Lock, ScanEye, AlertOctagon, Loader2 } from 'lucide-react';
+import PasswordInput from '../components/PasswordInput';
 import './Login.css';
 
 const Register = () => {
@@ -94,8 +95,7 @@ const Register = () => {
               <Lock size={14} />
               <span>Password (min. 8 characters)</span>
             </label>
-            <input
-              type="password"
+            <PasswordInput
               id="reg-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -110,8 +110,7 @@ const Register = () => {
               <Lock size={14} />
               <span>Confirm Password</span>
             </label>
-            <input
-              type="password"
+            <PasswordInput
               id="reg-confirm-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
