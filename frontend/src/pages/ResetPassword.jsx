@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { resetPassword } from '../services/api';
 import { Lock, ScanEye, CheckCircle2, AlertOctagon, ArrowLeft, RotateCcw, Loader2 } from 'lucide-react';
+import PasswordInput from '../components/PasswordInput';
 import './Login.css';
 
 const ResetPassword = () => {
@@ -103,8 +104,7 @@ const ResetPassword = () => {
                 <Lock size={14} />
                 <span>New Password</span>
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 id="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -119,8 +119,7 @@ const ResetPassword = () => {
                 <Lock size={14} />
                 <span>Confirm New Password</span>
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 id="confirm-new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

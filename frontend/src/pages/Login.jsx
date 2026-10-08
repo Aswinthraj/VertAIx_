@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, Mail, Lock, ScanEye, AlertOctagon, Loader2 } from 'lucide-react';
+import PasswordInput from '../components/PasswordInput';
 import './Login.css';
 
 const Login = () => {
@@ -71,8 +72,7 @@ const Login = () => {
                 Forgot Password?
               </Link>
             </div>
-            <input
-              type="password"
+            <PasswordInput
               id="login-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

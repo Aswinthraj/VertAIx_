@@ -21,6 +21,7 @@ import {
   X
 } from 'lucide-react';
 import './Settings.css';
+import PasswordInput from '../components/PasswordInput';
 
 const DEFAULT_SETTINGS = {
   soundEnabled: true,
@@ -319,8 +320,7 @@ const Settings = () => {
               <form className="settings-form" onSubmit={handleChangePassword}>
                 <div className="form-field-group">
                   <label htmlFor="curr-pass">Current Password</label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     id="curr-pass"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
@@ -332,8 +332,7 @@ const Settings = () => {
 
                 <div className="form-field-group">
                   <label htmlFor="new-pass">New Password (min. 8 characters)</label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     id="new-pass"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
@@ -345,8 +344,7 @@ const Settings = () => {
 
                 <div className="form-field-group">
                   <label htmlFor="conf-pass">Confirm New Password</label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     id="conf-pass"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -597,8 +595,7 @@ const Settings = () => {
 
                 <div className="form-field-group">
                   <label htmlFor="del-pass">Confirm Password</label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     id="del-pass"
                     value={deletePassword}
                     onChange={(e) => setDeletePassword(e.target.value)}
